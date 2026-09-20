@@ -4,21 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>DHDE Field Survey</title>
-<meta name="description" content="Field survey app for the Sakura Science DHDE tourism fieldwork team — crowd counts, flow, signage, and service data, plus on-device camera flow/occupancy tracking.">
+<meta name="description" content="Field survey app for the Sakura Science DHDE tourism fieldwork team — crowd counts, flow, signage, bilingual intercept surveys, and on-device camera flow/occupancy tracking.">
 <meta name="theme-color" content="#C1432B">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Noto+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Noto+Sans:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
 <style>
   :root{
     --bg:#F6F2E9; --surface:#FFFFFF; --surface-2:#EFE8D8;
     --ink:#182448; --ink-soft:#4E5A7C; --accent:#C1432B; --accent-ink:#FFF7EF;
     --line:#DED2B4; --good:#2F7D52; --warn:#B8811E; --critical:#9E2B25;
     --cat-count:#1F5FA8; --cat-flow:#9E2B25; --cat-lang:#7A4FB0; --cat-rest:#2F7D52;
-    --cat-food:#B8811E; --cat-biz:#0E7C86; --cat-visitor:#C1432B; --cat-photo:#4E5A7C; --cat-spot:#7A4FB0;
+    --cat-food:#B8811E; --cat-survey:#0E7C86; --cat-photo:#4E5A7C; --cat-spot:#B5548C;
     --font-display:'Zen Kaku Gothic New','Hiragino Sans',sans-serif;
     --font-body:'Noto Sans','Hiragino Sans',sans-serif;
+    --font-jp:'Noto Sans JP','Hiragino Sans',sans-serif;
     --font-mono:'JetBrains Mono', ui-monospace, monospace;
     --shadow-1:0 1px 2px rgba(24,36,72,.06),0 1px 1px rgba(24,36,72,.04);
     --shadow-2:0 8px 24px rgba(24,36,72,.14);
@@ -32,7 +33,7 @@
       --ink:#EFEADE; --ink-soft:#AAB2CE; --accent:#E36A46; --accent-ink:#1A1006;
       --line:#2C3555; --good:#4FAE7C; --warn:#D9A73B; --critical:#E2564A;
       --cat-count:#5B9BDE; --cat-flow:#E2564A; --cat-lang:#B292E8; --cat-rest:#4FAE7C;
-      --cat-food:#D9A73B; --cat-biz:#43C4CF; --cat-visitor:#E36A46; --cat-photo:#AAB2CE; --cat-spot:#B292E8;
+      --cat-food:#D9A73B; --cat-survey:#43C4CF; --cat-photo:#AAB2CE; --cat-spot:#E08FC9;
       --shadow-1:0 1px 2px rgba(0,0,0,.3); --shadow-2:0 8px 24px rgba(0,0,0,.45);
     }
   }
@@ -43,6 +44,7 @@
   img{max-width:100%;}
   [hidden]{display:none !important;}
   .num{font-family:var(--font-mono); font-variant-numeric:tabular-nums;}
+  .ja{font-family:var(--font-jp); color:var(--ink-soft); font-size:12.5px; display:block; margin-top:2px;}
   a{color:inherit;}
   button{font-family:inherit;}
   ::selection{background:var(--accent); color:var(--accent-ink);}
@@ -133,8 +135,12 @@
   .entry-cat{font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; color:#fff;}
   .entry-time{font-family:var(--font-mono); font-size:11.5px; color:var(--ink-soft); flex:none;}
   .entry-summary{font-size:14px;}
-  .entry-meta{font-size:12px; color:var(--ink-soft); margin-top:3px;}
+  .entry-meta{font-size:12px; color:var(--ink-soft); margin-top:3px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .entry-meta button{background:none; border:none; color:var(--accent); font-weight:700; font-size:12px; cursor:pointer; padding:0;}
   .entry img.thumb{margin-top:8px; max-height:160px; border-radius:8px; border:1px solid var(--line);}
+  .entry audio{margin-top:8px; width:100%;}
+  .backup-note{background:color-mix(in srgb, var(--warn) 16%, transparent); border:1px solid var(--warn); border-radius:10px; padding:10px 12px; font-size:12.5px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; gap:10px;}
+  .backup-note button{flex:none;}
 
   .kpi-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px;}
   .kpi{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:12px; text-align:center;}
@@ -148,8 +154,9 @@
   .gap-flag{display:flex; gap:10px; align-items:flex-start; padding:10px 0; border-top:1px solid var(--line);}
   .gap-flag:first-child{border-top:none;}
   .gap-flag .dot{width:8px; height:8px; border-radius:50%; background:var(--critical); margin-top:5px; flex:none;}
-  .person-row{display:flex; justify-content:space-between; padding:7px 0; border-top:1px solid var(--line); font-size:13px;}
+  .person-row{display:flex; justify-content:space-between; align-items:center; padding:0; border-top:1px solid var(--line); font-size:13px;}
   .person-row:first-child{border-top:none;}
+  .person-row button{background:none; border:none; padding:9px 0; text-align:left; font:inherit; color:inherit; cursor:pointer; flex:1; display:flex; justify-content:space-between;}
 
   nav.tabbar{position:sticky; bottom:0; z-index:20; background:var(--surface); border-top:1px solid var(--line); display:grid; grid-template-columns:repeat(4,1fr); padding:8px 0 calc(env(safe-area-inset-bottom,0px) + 8px);}
   nav.tabbar button{background:none; border:none; display:flex; flex-direction:column; align-items:center; gap:3px; font-size:10.5px; font-weight:700; color:var(--ink-soft); cursor:pointer; padding:4px;}
@@ -161,6 +168,20 @@
   .row2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
   .muted{color:var(--ink-soft); font-size:13px;}
   hr.soft{border:none; border-top:1px solid var(--line); margin:14px 0;}
+
+  /* survey module */
+  .ptype-row{display:grid; grid-template-columns:1fr; gap:8px;}
+  .ptype-btn{background:var(--surface); border:1px solid var(--line); border-radius:11px; padding:11px 13px; text-align:left; cursor:pointer;}
+  .ptype-btn b{display:block; font-size:14px;}
+  .ptype-btn small{font-family:var(--font-jp); color:var(--ink-soft); font-size:12px;}
+  .ptype-btn.on{border-color:var(--cat-survey); box-shadow:0 0 0 1px var(--cat-survey) inset; background:color-mix(in srgb, var(--cat-survey) 10%, var(--surface));}
+  .survey-q label{font-weight:700; font-size:13.5px; color:var(--ink);}
+  .mc-options{display:flex; flex-direction:column; gap:7px; margin-top:8px;}
+  .mc-opt{text-align:left; background:var(--surface); border:1px solid var(--line); border-radius:9px; padding:9px 11px; font-size:13px; font-weight:600; color:var(--ink); cursor:pointer;}
+  .mc-opt .ja{margin-top:1px;}
+  .mc-opt.on{border-color:var(--cat-survey); background:color-mix(in srgb, var(--cat-survey) 14%, var(--surface)); box-shadow:0 0 0 1px var(--cat-survey) inset;}
+  .voice-rec{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .voice-status{font-size:12px; color:var(--ink-soft); font-family:var(--font-mono);}
 
   /* camera overlay */
   .cam-overlay{position:fixed; inset:0; z-index:100; background:#000; display:flex; flex-direction:column;}
@@ -188,7 +209,7 @@
     <div><div class="eyebrow">Sakura Science · DHDE</div></div>
   </div>
   <h1>DHDE Field Survey</h1>
-  <p class="lede">Osaka &amp; Kyoto urban tourism fieldwork — 21 September 2026. Pick your name to start logging crowd, flow, signage, and service data.</p>
+  <p class="lede">Fukui, Osaka, Kyoto & Kanazawa tourism fieldwork. Pick your name to start logging crowd, flow, signage, and survey data — no account needed.</p>
   <div class="eyebrow" style="margin-bottom:10px;">Who&rsquo;s recording?</div>
   <div class="roster-grid" id="rosterGrid"></div>
   <div class="other-row">
@@ -211,33 +232,35 @@
 
   <main>
     <section class="tab active" id="tab-today">
+      <div class="eyebrow" style="margin-bottom:8px;">Day</div>
+      <div class="chiprow" id="dayChips"></div>
       <div class="card">
-        <span class="eyebrow">Day 2 · Mon 21 Sep 2026 · Osaka &amp; Kyoto</span>
-        <h2 style="margin-top:6px;">Why this trip matters</h2>
-        <p class="muted" style="margin-top:8px;">The DHDE model already tracks Fukui's own sites — Tojinbo, Katsuyama, Rainbow Line, Fukui Station East — with edge-AI camera counts, JMA weather, search-intent and hotel data. Today's stops are the <b style="color:var(--ink);">benchmark side of that model</b>: high-traffic, mature tourism sites where crowd dispersal, multilingual support and merchant density are already solved (or not). Everything logged here becomes the comparison set for Fukui's suppressed-demand and congestion forecasts.</p>
+        <span class="eyebrow" id="dayHeading"></span>
+        <h2 style="margin-top:6px;" id="dayWhy">Why this trip matters</h2>
+        <p class="muted" style="margin-top:8px;">The DHDE model already tracks Fukui's own sites with edge-AI camera counts, JMA weather, search-intent and hotel data. Fieldwork days are the <b style="color:var(--ink);">benchmark and ground-truth side of that model</b> — including some of Fukui's own sites, plus mature high-traffic comparisons in Osaka, Kyoto and Kanazawa. Everything logged here feeds the suppressed-demand and congestion forecasts.</p>
       </div>
       <div class="card">
-        <h2>Today's route</h2>
+        <h2>Route for this day</h2>
         <div class="sched" id="schedList"></div>
       </div>
       <div class="card">
         <h2>Field conduct</h2>
         <ul class="plain">
+          <li>No fixed roles — split up by category naturally when you arrive, and rotate if it's quiet.</li>
           <li>Buddy up — never survey a service provider or intercept a visitor alone.</li>
-          <li>Ask permission before quoting a business owner or photographing an identifiable face.</li>
-          <li>Keep provider interviews under 3 minutes; keep an eye on the group's departure time above everything else.</li>
+          <li>Ask permission before quoting a business owner, recording a voice note, or photographing an identifiable face.</li>
           <li>Charge phones at breakfast; pack a portable battery. Open this app once over wifi before you leave — it then works offline all day.</li>
-          <li>Rain contingency: canal-side spots (Dotonbori) and steep slopes (Sannen-zaka) get slippery — note it as a flow factor if it happens.</li>
+          <li>Halal note: on days that flag it, meals may not be reliable on-site — pack accordingly.</li>
         </ul>
       </div>
       <div class="card">
         <h2>How your data reaches everyone</h2>
-        <p class="muted" style="margin-top:6px;">This app has no server — everything you log stays on your phone. At each break (lunch, the Kyoto→Fukui train, or check-in), open the <b style="color:var(--ink);">Log</b> tab, tap <b style="color:var(--ink);">Export JSON</b>, and send the file to whoever is compiling (AirDrop / LINE / email). They open the Log tab on their own phone and paste it under <b style="color:var(--ink);">Merge in a teammate's export</b>. Do this after every site so nothing gets lost.</p>
+        <p class="muted" style="margin-top:6px;">This app has no server — everything (entries, photos, voice notes) stays on your phone until you export it. At each break, open <b style="color:var(--ink);">Log</b>, tap <b style="color:var(--ink);">Export</b>, and send the file to whoever is compiling. They paste it into <b style="color:var(--ink);">Merge in a teammate's export</b> on their own phone. The compiler can also commit the merged file into the team's GitHub repo so it's never only on one phone — see the README.</p>
       </div>
     </section>
 
     <section class="tab" id="tab-survey">
-      <div class="eyebrow" style="margin-bottom:8px;">1 · Site</div>
+      <div class="eyebrow" style="margin-bottom:8px;">1 · Site (<span id="surveyDayLabel"></span>)</div>
       <div class="chiprow" id="siteChips"></div>
       <div class="eyebrow" style="margin-bottom:8px;">2 · What are you recording?</div>
       <div class="chiprow" id="catChips"></div>
@@ -246,11 +269,16 @@
 
     <section class="tab" id="tab-log">
       <div class="card">
-        <div class="chiprow" id="logFilters" style="margin-bottom:6px;"></div>
+        <div id="backupNote"></div>
+        <div class="eyebrow" style="margin-bottom:6px;">Day</div>
+        <div class="chiprow" id="logDayFilters" style="margin-bottom:6px;"></div>
+        <div class="eyebrow" style="margin-bottom:6px;">Site</div>
+        <div class="chiprow" id="logSiteFilters" style="margin-bottom:6px;"></div>
         <div class="row2" style="margin-bottom:4px;">
-          <button class="btn ghost" id="exportJson">Export JSON</button>
-          <button class="btn ghost" id="exportCsv">Export CSV</button>
+          <button class="btn ghost" id="exportJson">Export shown (JSON)</button>
+          <button class="btn ghost" id="exportCsv">Export shown (CSV)</button>
         </div>
+        <p class="muted" style="margin-top:6px;">Exports include everything for the entries currently shown below — photos and voice notes included.</p>
         <details style="margin-top:10px;">
           <summary class="muted" style="cursor:pointer; font-weight:700;">Merge in a teammate's export</summary>
           <p class="muted" style="margin:8px 0;">Paste a teammate's exported JSON here to combine logs on this phone.</p>
@@ -263,6 +291,8 @@
 
     <section class="tab" id="tab-dash">
       <div class="card">
+        <div class="eyebrow" style="margin-bottom:6px;">Day</div>
+        <div class="chiprow" id="dashDayFilters" style="margin-bottom:2px;"></div>
         <h2>Live coverage</h2>
         <div class="kpi-grid" id="kpiGrid"></div>
         <div id="gapFlags"></div>
@@ -273,11 +303,12 @@
       </div>
       <div class="card">
         <h2>Who's logged what</h2>
+        <p class="muted" style="margin-bottom:4px;">Tap a name to see just their entries in the Log tab.</p>
         <div id="personList"></div>
       </div>
       <div class="card">
-        <p class="muted"><b style="color:var(--ink);">Local device only.</b> This dashboard reflects entries on this phone plus anything you've merged in. Merge everyone's exports before reading it as a full picture.</p>
-        <button class="btn ghost block" id="exportSummary" style="margin-top:10px;">Export summary CSV</button>
+        <p class="muted"><b style="color:var(--ink);">Local device only.</b> This reflects entries on this phone plus anything you've merged in. Merge everyone's exports before reading it as the full picture.</p>
+        <button class="btn ghost block" id="exportSummary" style="margin-top:10px;">Export summary CSV (all data)</button>
       </div>
     </section>
   </main>
@@ -300,25 +331,91 @@
 
   var ROSTER = ["Amil Khanzada","Mohammed Sohail","Dina Belay","Jana Wasfi","Husn Shujaat","Muskaan Irfan","Muhammad Anugra Rizky Rambe","Gabriella Gunarto","Ahmad Showail","Morgan Lan","Yu Kitagawa"];
 
-  var SITES = [
-    {id:"dotonbori", name:"Dotonbori & Namba", window:"09:30–10:45", focus:"Crowding, visitor-flow circulation, multilingual signage"},
-    {id:"umeda", name:"Umeda & Osaka Station", window:"11:10–12:00", focus:"Inbound visitor behaviour (incl. lunch)"},
-    {id:"kiyomizu", name:"Kiyomizu-dera · Ninen-zaka · Sannen-zaka", window:"14:00–16:30", focus:"Crowd dispersal points, multilingual support"}
+  /* ---------------- multi-day itinerary ---------------- */
+  var DAYS = [
+    { id:"sep21", date:"2026-09-21", label:"Osaka & Kyoto",
+      sites:[
+        {id:"dotonbori", name:"Dotonbori & Namba", window:"09:30–10:45", focus:"Crowding, visitor-flow circulation, multilingual signage"},
+        {id:"umeda", name:"Umeda & Osaka Station", window:"11:10–12:00", focus:"Inbound visitor behaviour (incl. lunch)"},
+        {id:"kiyomizu", name:"Kiyomizu-dera · Ninen-zaka · Sannen-zaka", window:"14:00–16:30", focus:"Crowd dispersal points, multilingual support"}
+      ],
+      schedule:[
+        {t:"08:30", w:"Breakfast", n:"", field:false},
+        {t:"09:00", w:"Depart accommodation", n:"Ikuno-ku, Osaka", field:false},
+        {t:"09:30–10:45", w:"Field survey 1 — Dotonbori & Namba", n:"Crowding, flow circulation, multilingual signage", field:true},
+        {t:"11:10–12:00", w:"Field survey 2 — Umeda & Osaka Station", n:"~25 min group walk from Namba. Includes lunch. Inbound visitor behaviour", field:true},
+        {t:"12:15–13:45", w:"Move to Kyoto (JR) → Higashiyama", n:"~30 min rail. City bus 206 from Kyoto Stn toward Kitaoji for Kiyomizu — confirm stop", field:false},
+        {t:"14:00–16:30", w:"Field survey 3 — Kiyomizu-dera, Ninen-zaka, Sannen-zaka", n:"Crowd dispersal points, multilingual support", field:true},
+        {t:"17:45", w:"Kyoto → Tsuruga (Thunderbird) → Fukui", n:"Terminates at Tsuruga; reserved tickets issued", field:false},
+        {t:"19:05", w:"Arrive JR Fukui Station", n:"", field:false},
+        {t:"20:00–20:30", w:"Check in", n:"Women: 夢テラス, Sabae · Men: パレスイン福井", field:false},
+        {t:"20:30", w:"Day ends", n:"Orientation materials distributed at check-in", field:false}
+      ]},
+    { id:"sep23", date:"2026-09-23", label:"Eiheiji, Katsuyama & Tojinbo",
+      sites:[
+        {id:"eiheiji", name:"Eiheiji Temple", window:"09:00–10:30", focus:"Visitor circulation, crowd dispersal, multilingual signage, under-vibrancy observation"},
+        {id:"dinomuseum", name:"Fukui Prefectural Dinosaur Museum", window:"11:15–13:15", focus:"Ticketed timed-entry attraction — queue/flow inside controlled capacity. Halal lunch unreliable, bring a packed lunch"},
+        {id:"tojinbo", name:"Tojinbo & Echizen Coast", window:"14:15–16:30", focus:"Weather-impact assessment, multilingual signage. AI camera reference: under the eaves opposite Kominamitei"}
+      ],
+      schedule:[
+        {t:"07:45", w:"Depart Fukui Station East (men + staff)", n:"Chartered bus", field:false},
+        {t:"08:00", w:"Board at Lounge Taki, Fukui (women)", n:"Mr. Takino boards here and guides for the whole day", field:false},
+        {t:"09:00–10:30", w:"Field survey 1 — Eiheiji Temple", n:"Visitor circulation, crowd dispersal, multilingual signage, under-vibrancy observation", field:true},
+        {t:"11:15–13:15", w:"Field survey 2 — Fukui Prefectural Dinosaur Museum, Katsuyama", n:"Timed ticket booked for the 11:00–12:00 slot. Includes lunch — halal unreliable, bring a packed lunch", field:true},
+        {t:"14:15–16:30", w:"Field survey 3 — Tojinbo & the Echizen coast, Sakai", n:"AI camera reference: Tojinbo shopping street, under the eaves opposite Kominamitei. Weather-impact assessment, multilingual signage", field:true},
+        {t:"17:45", w:"Women drop-off at Lounge Taki, Fukui", n:"", field:false},
+        {t:"18:00", w:"Men + staff arrive Fukui Station East", n:"", field:false},
+        {t:"18:00–18:30", w:"Edge-AI camera check — Fukui Station East", n:"Camera in the tourist information centre, ceiling by the counter. Open until 19:00", field:false},
+        {t:"18:30", w:"Day ends", n:"", field:false}
+      ]},
+    { id:"sep24", date:"2026-09-24", label:"Komatsu & Kanazawa",
+      sites:[
+        {id:"komatsu", name:"Komatsu Airport", window:"08:55–09:25", focus:"Arrival/departure routes, multilingual provision, the Hokuriku inbound corridor"},
+        {id:"c21museum", name:"21st Century Museum (exchange zone)", window:"10:10–10:35", focus:"Exhibition zone closed today — exterior & exchange zone observation only"},
+        {id:"kenrokuen", name:"Kenroku-en Garden", window:"10:45–11:55", focus:"Crowd dispersal points, multilingual signage"},
+        {id:"kanazawacastle", name:"Kanazawa Castle Park", window:"12:05–13:00", focus:"General crowd & flow observation"},
+        {id:"omicho", name:"Omicho Market", window:"13:15–14:30", focus:"Lunch + market observation. Halal unreliable, bring a packed lunch"},
+        {id:"higashichaya", name:"Higashi Chaya District", window:"14:50–15:55", focus:"Congestion in a preserved historic district"},
+        {id:"kanazawastation", name:"Kanazawa Station & Tsuzumi-mon Gate", window:"16:10–17:10", focus:"The arrival gateway for most Kanazawa visitors"}
+      ],
+      schedule:[
+        {t:"07:45", w:"Depart Fukui Station East (men + staff)", n:"Chartered bus", field:false},
+        {t:"08:00", w:"Board at Lounge Taki, Fukui (women)", n:"Mr. Takino guides for the whole day", field:false},
+        {t:"08:55–09:25", w:"Field survey 4 — Komatsu Airport", n:"Arrival/departure routes, multilingual provision, the Hokuriku inbound corridor", field:true},
+        {t:"10:10–10:35", w:"21st Century Museum — exchange zone only", n:"Exhibition zone closed 24 Sep. Exterior + exchange zone observation only", field:true},
+        {t:"10:45–11:55", w:"Kenroku-en Garden", n:"Crowd dispersal points, multilingual signage", field:true},
+        {t:"12:05–13:00", w:"Kanazawa Castle Park", n:"", field:true},
+        {t:"13:15–14:30", w:"Omicho Market", n:"Lunch + market observation. Halal unreliable, bring a packed lunch", field:true},
+        {t:"14:50–15:55", w:"Higashi Chaya District", n:"Congestion in a preserved historic district", field:true},
+        {t:"16:10–17:10", w:"Kanazawa Station and the Tsuzumi-mon gate", n:"The arrival gateway for most Kanazawa visitors", field:true},
+        {t:"19:45", w:"Women drop-off at Lounge Taki, Fukui", n:"", field:false},
+        {t:"20:00", w:"Men + staff arrive Fukui Station East", n:"", field:false},
+        {t:"20:00", w:"Day ends", n:"", field:false}
+      ]},
+    { id:"oct2", date:"2026-10-02", label:"Merchant Dashboard Trial",
+      sites:[
+        {id:"merchanttrial", name:"Eiheiji / Katsuyama Merchants", window:"13:00–15:30", focus:"Trial the DHDE dashboard with local merchants — capture reactions and follow-up interest via the Intercept Survey"}
+      ],
+      schedule:[
+        {t:"08:00–18:30", w:"University car booked (7-seater)", n:"Covers the whole window below", field:false},
+        {t:"13:00–15:30", w:"Merchant dashboard trial — Eiheiji or Katsuyama", n:"Up to 6 participants + Amil. Destination still being fixed between Eiheiji Town and Katsuyama", field:true}
+      ]}
   ];
 
-  var SCHEDULE = [
-    {t:"08:30", w:"Breakfast", n:"", field:false},
-    {t:"09:00", w:"Depart accommodation", n:"Ikuno-ku, Osaka", field:false},
-    {t:"09:30–10:45", w:"Field survey 1 — Dotonbori & Namba", n:"Crowding, flow circulation, multilingual signage", field:true},
-    {t:"11:10–12:00", w:"Field survey 2 — Umeda & Osaka Station", n:"~25 min group walk from Namba. Includes lunch. Inbound visitor behaviour", field:true},
-    {t:"12:15–13:45", w:"Move to Kyoto (JR) → Higashiyama", n:"~30 min rail. City bus 206 from Kyoto Stn toward Kitaoji for Kiyomizu — confirm stop", field:false},
-    {t:"14:00–16:30", w:"Field survey 3 — Kiyomizu-dera, Ninen-zaka, Sannen-zaka", n:"Crowd dispersal points, multilingual support", field:true},
-    {t:"17:45", w:"Kyoto → Tsuruga (Thunderbird) → Fukui", n:"Terminates at Tsuruga; reserved tickets issued", field:false},
-    {t:"19:05", w:"Arrive JR Fukui Station", n:"", field:false},
-    {t:"20:00–20:30", w:"Check in", n:"Women: 夢テラス, Sabae · Men: パレスイン福井", field:false},
-    {t:"20:30", w:"Day ends", n:"Orientation materials distributed at check-in", field:false}
-  ];
+  function findDay(id){ return DAYS.filter(function(d){return d.id===id;})[0]; }
+  function allSites(){ var out=[]; DAYS.forEach(function(d){ d.sites.forEach(function(s){ out.push(Object.assign({dayId:d.id}, s)); }); }); return out; }
+  function siteName(id){ var s = allSites().filter(function(x){return x.id===id;})[0]; return s ? s.name : id; }
+  function dayLabel(id){ var d = findDay(id); return d ? d.label : id; }
+  function defaultDayId(){
+    var today = new Date(); today.setHours(0,0,0,0);
+    var todayStr = today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,"0")+"-"+String(today.getDate()).padStart(2,"0");
+    var exact = DAYS.filter(function(d){return d.date===todayStr;})[0];
+    if(exact) return exact.id;
+    var upcoming = DAYS.filter(function(d){return d.date >= todayStr;})[0];
+    return upcoming ? upcoming.id : DAYS[DAYS.length-1].id;
+  }
 
+  /* ---------------- category definitions ---------------- */
   var CATEGORIES = {
     count:{label:"Crowd Count", color:"var(--cat-count)", blurb:"Quantify how packed each pinch point is, at fixed intervals, from a fixed vantage point.",
       how:["Stand at a clear vantage point across the pinch point (corner, bridge, doorway).","Tally everyone crossing an imaginary line for 60 seconds; repeat at the start and end of your 15-minute block.","Or use Camera assist below to have your phone count crossings automatically — check it against a manual tally now and then.","Rate ambient density 1–5: 1 free walking pace, 3 shoulder-to-shoulder in patches, 5 shuffling, can't deviate.","Note the dominant flow direction and whether it's one-way, two-way, or crossing."],
@@ -368,27 +465,6 @@
         {id:"dietary", label:"Halal/veg/allergen info visible?", type:"yesno"},
         {id:"notes", label:"Notes", type:"textarea"}
       ]},
-    biz:{label:"Service Provider Survey", color:"var(--cat-biz)", blurb:"A 3-minute conversation with a staff member or owner during a lull — always ask permission first.",
-      how:["Approach during a lull, not mid-queue. Briefly introduce the University of Fukui fieldwork and ask permission before taking notes or quoting them.","Ask: approx. peak traffic and busiest hours; whether inbound tourists are a meaningful share of revenue; their single biggest visitor-facing pain point; whether they'd take a follow-up interview.","Keep it under 3 minutes and thank them before leaving."],
-      fields:[
-        {id:"business", label:"Business name", type:"text", req:true},
-        {id:"type", label:"Business type", type:"text"},
-        {id:"interviewed", label:"Interview conducted?", type:"yesno", req:true},
-        {id:"traffic", label:"Peak traffic / busiest hours (self-reported)", type:"text"},
-        {id:"touristShare", label:"Tourist share of revenue", type:"select", options:["Low","Medium","High","Unknown"]},
-        {id:"painPoint", label:"Biggest visitor-facing pain point", type:"textarea"},
-        {id:"followup", label:"Open to follow-up interview?", type:"yesno"}
-      ]},
-    visitor:{label:"Visitor Interview", color:"var(--cat-visitor)", blurb:"A 5-question intercept with visitors who've just stopped — never mid-walk.",
-      how:["Approach visitors who've just paused (photo spot, bench, map board), not mid-walk.","Ask: origin, most comfortable language, group type, purpose of this stop, one thing that was confusing or hard to find — use a translation app where needed.","Get verbal consent before jotting notes; ask self-reported satisfaction 1–5."],
-      fields:[
-        {id:"origin", label:"Country / region of origin", type:"text", req:true},
-        {id:"language", label:"Language most comfortable in", type:"text"},
-        {id:"groupType", label:"Group type", type:"select", options:["Solo","Couple","Family","Friends","Tour group"]},
-        {id:"purpose", label:"Purpose of this stop", type:"text"},
-        {id:"painPoint", label:"What was confusing or hard to find?", type:"textarea"},
-        {id:"satisfaction", label:"Self-reported satisfaction — 1 low → 5 high", type:"scale5"}
-      ]},
     photo:{label:"Photo Log", color:"var(--cat-photo)", blurb:"One photo per issue, taken to show evidence — not a scenic shot.",
       how:["Take one photo per pinch point or gap you've logged, from the vantage point that best shows the issue.","Caption it with exactly what it's evidence of.","Avoid close-up identifiable faces where you can help it — this is fieldwork documentation, not tourism photography."],
       fields:[
@@ -399,31 +475,79 @@
       how:["Find a single, well-defined photo spot (a railing, a torii, a bench with a view) where people visibly queue for their turn.","Name it, then draw a box around the spot on the camera view — drag the two corner dots.","Start monitoring and prop your phone up. It logs a session every time someone occupies then leaves the box, with dwell time and peak headcount, until you stop.","This is an estimate from an on-device model, not a precise sensor — spot-check it against a stopwatch once."],
       fields:[
         {id:"spotLabel", label:"Spot label", type:"text", req:true, ph:"e.g. Kiyomizu viewing deck railing"}
-      ]}
+      ]},
+    survey:{label:"Intercept Survey", color:"var(--cat-survey)", blurb:"Pick who you're talking to — the right questions appear, in English and Japanese so you can show the screen if that helps.",
+      how:["Business/shop owner: ask during a lull, keep it under 3 minutes, always ask permission first.","Staff: front-line staff often know visitor pain points better than management — ask them directly.","Tourist: approach people who've just paused, not mid-walk. Get verbal consent before jotting notes.","You can attach a short voice note instead of typing everything, if they're comfortable with it."],
+      dynamic:true
+    }
   };
-  var CAT_ORDER = ["count","flow","lang","rest","food","biz","visitor","photo","spot"];
+  var CAT_ORDER = ["count","flow","lang","rest","food","survey","photo","spot"];
+
+  var SURVEY_TYPES = [
+    {id:"business", en:"Business / Shop Owner", ja:"店舗・事業者"},
+    {id:"staff", en:"Staff (attraction / station / tourism office)", ja:"スタッフ・職員"},
+    {id:"tourist", en:"Tourist / Visitor", ja:"観光客"}
+  ];
+  var SURVEY_INTRO = {
+    business:[{id:"bizName", label:"Business name", ja:"店舗名", type:"text", req:true},{id:"bizType", label:"Business type", ja:"業種", type:"text"}],
+    staff:[{id:"orgName", label:"Role / organization", ja:"役職・所属", type:"text"}],
+    tourist:[{id:"origin", label:"Country / region of origin", ja:"出身国・地域", type:"text", req:true},{id:"language", label:"Language most comfortable in", ja:"話しやすい言語", type:"text"},{id:"groupType", label:"Group type", ja:"グループの種類", type:"select", options:["Solo","Couple","Family","Friends","Tour group"]}]
+  };
+  var SURVEY_QUESTIONS = {
+    business:[
+      {id:"q1_traffic", en:"About how many customers do you get on a typical day?", ja:"一日に大体何人のお客様が来られますか?", type:"single", options:[
+        {en:"Fewer than 20", ja:"20人未満"},{en:"20–50", ja:"20〜50人"},{en:"50–100", ja:"50〜100人"},{en:"100–300", ja:"100〜300人"},{en:"More than 300", ja:"300人以上"}]},
+      {id:"q2_touristshare", en:"Roughly what share of your customers are visitors from outside Japan?", ja:"お客様のうち、海外からの観光客はどのくらいの割合ですか?", type:"single", options:[
+        {en:"Almost none (0–10%)", ja:"ほとんどいない(0〜10%)"},{en:"A few (10–30%)", ja:"少し(10〜30%)"},{en:"About half (30–50%)", ja:"約半分(30〜50%)"},{en:"Most (50–80%)", ja:"多い(50〜80%)"},{en:"Nearly all (80–100%)", ja:"ほとんど(80〜100%)"}]},
+      {id:"q3_busiest", en:"When is it busiest for you?", ja:"一番忙しい時間帯はいつですか?", type:"single", options:[
+        {en:"Morning (before 11am)", ja:"午前(11時前)"},{en:"Midday (11am–2pm)", ja:"昼(11時〜14時)"},{en:"Afternoon (2–5pm)", ja:"午後(14時〜17時)"},{en:"Evening (after 5pm)", ja:"夕方以降(17時以降)"},{en:"Weekends busier than weekdays", ja:"平日より週末が忙しい"}]},
+      {id:"q4_language", en:"What language support do you offer non-Japanese-speaking customers?", ja:"日本語が話せないお客様への言語サポートはありますか?", type:"multi", options:[
+        {en:"Menu/signage in other languages", ja:"他言語のメニュー・表示"},{en:"Staff who speak other languages", ja:"他言語を話せるスタッフ"},{en:"Translation app or device", ja:"翻訳アプリ・機器"},{en:"QR code", ja:"QRコード"},{en:"None currently", ja:"特にない"}]},
+      {id:"q5_payment", en:"What payment methods do you accept?", ja:"どの支払い方法に対応していますか?", type:"multi", options:[
+        {en:"Cash only", ja:"現金のみ"},{en:"IC card (Suica/ICOCA)", ja:"ICカード(Suica・ICOCA)"},{en:"Credit card", ja:"クレジットカード"},{en:"QR payment (PayPay etc.)", ja:"QR決済(PayPayなど)"},{en:"Alipay / WeChat Pay", ja:"Alipay・WeChat Pay"}]},
+      {id:"q6_trend", en:"How has the number of foreign tourists changed over the last year?", ja:"この一年で外国人観光客の数はどう変化しましたか?", type:"single", options:[
+        {en:"Increased a lot", ja:"大きく増えた"},{en:"Increased a little", ja:"少し増えた"},{en:"About the same", ja:"変わらない"},{en:"Decreased a little", ja:"少し減った"},{en:"Decreased a lot", ja:"大きく減った"},{en:"Not sure", ja:"わからない"}]},
+      {id:"q7_painpoint", en:"What is the single biggest challenge you face with tourist customers right now?", ja:"現在、観光客のお客様に関して一番困っていることは何ですか?", type:"open"}
+    ],
+    staff:[
+      {id:"s1", en:"What questions do visitors ask you most often?", ja:"観光客からよく聞かれる質問は何ですか?", type:"open"},
+      {id:"s2", en:"What is the most common complaint or point of confusion you hear?", ja:"よくある苦情や混乱ポイントは何ですか?", type:"open"},
+      {id:"s3", en:"Is there anything about facilities here (signage, restrooms, rest areas) that visitors often struggle with?", ja:"施設(案内表示・トイレ・休憩所など)について観光客がよく困ることはありますか?", type:"open"},
+      {id:"s4", en:"Do you feel adequately equipped to help non-Japanese-speaking visitors?", ja:"日本語を話さない観光客への対応に十分な準備ができていると感じますか?", type:"open"}
+    ],
+    tourist:[
+      {id:"t1", en:"What brought you to this area today?", ja:"今日このエリアに来た目的は何ですか?", type:"open"},
+      {id:"t2", en:"Was there anything here that was hard to find or understand?", ja:"ここで分かりにくかったこと、探しにくかったことはありますか?", type:"open"},
+      {id:"t3", en:"Did you have any trouble with language, payment, or getting around?", ja:"言語、支払い、移動で困ったことはありますか?", type:"open"},
+      {id:"t4", en:"What's one thing that would have made your visit better?", ja:"訪問がもっと良くなるために、何か改善できるとしたら?", type:"open"},
+      {id:"t5", en:"Would you recommend this place to a friend? Why or why not?", ja:"友人にこの場所を勧めますか?その理由は?", type:"open"}
+    ]
+  };
 
   /* ---------------- state ---------------- */
   var state = {
-    identity: null, site: "dotonbori", cat: "count", tab: "today",
-    entries: new Map(), logFilterSite: "all", logFilterMine: false
+    identity: null, day: defaultDayId(), site: null, cat: "count", tab: "today",
+    entries: new Map(), logFilterDay: "all", logFilterSite: "all", logFilterAuthor: null,
+    dashFilterDay: "all", sinceExport: 0
   };
+  state.site = findDay(state.day).sites[0].id;
 
   function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,9); }
   function initials(name){ var p = name.trim().split(/\s+/); return ((p[0]||"")[0]||"") + ((p[1]||"")[0]||""); }
   function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g, function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
   function fmtTime(iso){ try{ return new Date(iso).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}); }catch(e){ return ""; } }
-  function siteName(id){ var s=SITES.filter(function(x){return x.id===id;})[0]; return s?s.name:id; }
   function catInfo(id){ return CATEGORIES[id] || {label:id, color:"var(--ink-soft)"}; }
   function fmtDur(sec){ var m=Math.floor(sec/60), s=sec%60; return m+":"+(s<10?"0":"")+s; }
 
-  function persistLocal(){ try{ localStorage.setItem("dhde_entries", JSON.stringify(Array.from(state.entries.values()))); }catch(e){} }
+  function persistLocal(){ try{ localStorage.setItem("dhde_entries", JSON.stringify(Array.from(state.entries.values()))); localStorage.setItem("dhde_since_export", String(state.sinceExport)); }catch(e){} }
   function loadLocal(){
     try{
       var raw = localStorage.getItem("dhde_entries");
       if(raw){ JSON.parse(raw).forEach(function(e){ state.entries.set(e.id, e); }); }
       var id = localStorage.getItem("dhde_identity");
       if(id) state.identity = id;
+      var se = localStorage.getItem("dhde_since_export");
+      if(se) state.sinceExport = Number(se)||0;
     }catch(e){}
   }
 
@@ -454,25 +578,48 @@
 
   /* ---------------- tabs ---------------- */
   document.querySelectorAll("nav.tabbar button").forEach(function(btn){
-    btn.addEventListener("click", function(){
-      state.tab = btn.getAttribute("data-tab");
-      document.querySelectorAll("nav.tabbar button").forEach(function(b){ b.classList.toggle("active", b===btn); });
-      document.querySelectorAll("section.tab").forEach(function(s){ s.classList.remove("active"); });
-      document.getElementById("tab-"+state.tab).classList.add("active");
-      if(state.tab==="log") renderLog();
-      if(state.tab==="dash") renderDash();
-    });
+    btn.addEventListener("click", function(){ goTab(btn.getAttribute("data-tab")); });
   });
+  function goTab(tab){
+    state.tab = tab;
+    document.querySelectorAll("nav.tabbar button").forEach(function(b){ b.classList.toggle("active", b.getAttribute("data-tab")===tab); });
+    document.querySelectorAll("section.tab").forEach(function(s){ s.classList.remove("active"); });
+    document.getElementById("tab-"+tab).classList.add("active");
+    if(tab==="log") renderLog();
+    if(tab==="dash") renderDash();
+  }
 
-  function renderSchedule(){
-    document.getElementById("schedList").innerHTML = SCHEDULE.map(function(r){
+  /* ---------------- today tab ---------------- */
+  function renderDayChips(containerId, currentGetter, currentSetter, includeAll){
+    var el = document.getElementById(containerId);
+    var chips = includeAll ? [{id:"all", label:"All days"}].concat(DAYS.map(function(d){return {id:d.id, label:d.label};})) :
+      DAYS.map(function(d){return {id:d.id, label:d.label, date:d.date};});
+    el.innerHTML = chips.map(function(c){
+      return '<div class="chip'+(currentGetter()===c.id?" active":"")+'" data-d="'+c.id+'"><b>'+esc(c.label)+'</b>'+(c.date?"<small>"+esc(c.date)+"</small>":"")+"</div>";
+    }).join("");
+    el.querySelectorAll(".chip").forEach(function(c){
+      c.addEventListener("click", function(){ currentSetter(c.getAttribute("data-d")); });
+    });
+  }
+
+  function renderToday(){
+    renderDayChips("dayChips", function(){return state.day;}, function(v){
+      state.day = v; state.site = findDay(v).sites[0].id;
+      renderToday(); renderSiteChips(); renderCatChips(); renderForm();
+    }, false);
+    var d = findDay(state.day);
+    document.getElementById("dayHeading").textContent = d.label + " · " + d.date;
+    document.getElementById("schedList").innerHTML = d.schedule.map(function(r){
       return '<div class="sched-row'+(r.field?" field":"")+'"><div class="time">'+esc(r.t)+'</div><div class="what"><b>'+esc(r.w)+'</b>'+(r.n?'<div class="note">'+esc(r.n)+"</div>":"")+"</div></div>";
     }).join("");
   }
 
+  /* ---------------- survey tab ---------------- */
   function renderSiteChips(){
     var el = document.getElementById("siteChips");
-    el.innerHTML = SITES.map(function(s){
+    document.getElementById("surveyDayLabel").textContent = dayLabel(state.day);
+    var sites = findDay(state.day).sites;
+    el.innerHTML = sites.map(function(s){
       return '<div class="chip'+(s.id===state.site?" active":"")+'" data-site="'+s.id+'"><b>'+esc(s.name)+"</b><small>"+esc(s.window)+"</small></div>";
     }).join("");
     el.querySelectorAll(".chip").forEach(function(c){ c.addEventListener("click", function(){ state.site = c.getAttribute("data-site"); renderSiteChips(); }); });
@@ -490,12 +637,12 @@
     var reqMark = f.req ? ' <span class="req">*</span>' : "";
     var id = "f_"+f.id;
     var camBtn = f.cam ? ' <button type="button" class="btn secondary" data-camfor="'+id+'" data-cammode="'+f.cam+'" style="margin-left:6px; padding:6px 10px; font-size:11.5px;">Camera assist</button>' : "";
-    if(f.type==="text") return '<div class="field"><label for="'+id+'">'+esc(f.label)+reqMark+'</label><input type="text" id="'+id+'" placeholder="'+esc(f.ph||"")+'"></div>';
+    if(f.type==="text") return '<div class="field"><label for="'+id+'">'+esc(f.label)+reqMark+(f.ja?'<span class="ja">'+esc(f.ja)+'</span>':'')+'</label><input type="text" id="'+id+'" placeholder="'+esc(f.ph||"")+'"></div>';
     if(f.type==="number") return '<div class="field"><label for="'+id+'">'+esc(f.label)+reqMark+camBtn+'</label><input type="number" inputmode="numeric" id="'+id+'"></div>';
     if(f.type==="textarea") return '<div class="field"><label for="'+id+'">'+esc(f.label)+reqMark+'</label><textarea id="'+id+'" placeholder="'+esc(f.ph||"")+'"></textarea></div>';
     if(f.type==="select"){
       var opts = '<option value="">Select…</option>'+f.options.map(function(o){return '<option value="'+esc(o)+'">'+esc(o)+"</option>";}).join("");
-      return '<div class="field"><label for="'+id+'">'+esc(f.label)+reqMark+'</label><select id="'+id+'">'+opts+"</select></div>";
+      return '<div class="field"><label for="'+id+'">'+esc(f.label)+reqMark+(f.ja?'<span class="ja">'+esc(f.ja)+'</span>':'')+'</label><select id="'+id+'">'+opts+"</select></div>";
     }
     if(f.type==="multiselect"){
       var boxes = f.options.map(function(o){ return '<label><input type="checkbox" value="'+esc(o)+'" data-ms="'+id+'">'+esc(o)+"</label>"; }).join("");
@@ -510,9 +657,85 @@
     return "";
   }
 
+  function wirePlainFields(root){
+    root.querySelectorAll("[data-scale]").forEach(function(wrap){
+      wrap.addEventListener("click", function(e){
+        var b = e.target.closest("button"); if(!b) return;
+        wrap.querySelectorAll("button").forEach(function(x){ x.classList.remove("on"); });
+        b.classList.add("on"); wrap.dataset.value = b.getAttribute("data-val");
+      });
+    });
+    root.querySelectorAll("[data-yn]").forEach(function(wrap){
+      wrap.addEventListener("click", function(e){
+        var b = e.target.closest("button"); if(!b) return;
+        wrap.querySelectorAll("button").forEach(function(x){ x.classList.remove("on"); });
+        b.classList.add("on"); wrap.dataset.value = b.getAttribute("data-val");
+      });
+    });
+  }
+
+  function readPlainField(f, root){
+    var id = "f_"+f.id;
+    if(f.type==="text" || f.type==="number" || f.type==="textarea" || f.type==="select"){
+      var el = root.querySelector("#"+id); var v = el ? el.value : "";
+      return {value: f.type==="number" ? (v?Number(v):null) : v, missing: f.req && !v};
+    }
+    if(f.type==="multiselect"){
+      var boxes = root.querySelectorAll('[data-ms="'+id+'"]:checked');
+      var vals = Array.from(boxes).map(function(b){return b.value;});
+      return {value: vals, missing: f.req && vals.length===0};
+    }
+    if(f.type==="scale5" || f.type==="yesno"){
+      var wrap = root.querySelector("#"+id); var v2 = wrap ? wrap.dataset.value : null;
+      return {value: v2||null, missing: f.req && !v2};
+    }
+    return {value:null, missing:false};
+  }
+
+  /* -------- voice note component (shared) -------- */
+  function voiceNoteHtml(id){
+    return '<div class="field"><label>Voice note (optional, max 60s)<span class="ja">音声メモ(任意・最大60秒)</span></label>'+
+      '<div class="voice-rec" id="'+id+'"><button type="button" class="btn secondary" data-vnbtn>Record</button><span class="voice-status" data-vnstatus></span></div>'+
+      '<audio data-vnplayback controls style="display:none;width:100%;margin-top:8px;"></audio></div>';
+  }
+  function wireVoiceNote(root, id){
+    var wrap = root.querySelector("#"+id);
+    if(!wrap) return;
+    var btn = wrap.querySelector("[data-vnbtn]"), status = wrap.querySelector("[data-vnstatus]");
+    var audioEl = root.querySelector('audio[data-vnplayback]');
+    var recorder=null, chunks=[], timer=null, seconds=0;
+    wrap._dataUrl = null;
+    if(!navigator.mediaDevices || !window.MediaRecorder){ status.textContent = "Not supported on this browser"; btn.disabled = true; return; }
+    btn.addEventListener("click", function(){
+      if(!recorder || recorder.state==="inactive"){
+        navigator.mediaDevices.getUserMedia({audio:true}).then(function(s){
+          chunks = [];
+          try{ recorder = new MediaRecorder(s); }catch(e){ status.textContent="Recording not supported"; return; }
+          recorder.ondataavailable = function(e){ if(e.data.size>0) chunks.push(e.data); };
+          recorder.onstop = function(){
+            var blob = new Blob(chunks, {type:"audio/webm"});
+            var reader = new FileReader();
+            reader.onload = function(ev){ wrap._dataUrl = ev.target.result; audioEl.src = ev.target.result; audioEl.style.display="block"; };
+            reader.readAsDataURL(blob);
+            s.getTracks().forEach(function(t){ t.stop(); });
+          };
+          recorder.start(); seconds = 0; status.textContent = "Recording… 0s"; btn.textContent = "Stop";
+          timer = setInterval(function(){
+            seconds++; status.textContent = "Recording… "+seconds+"s";
+            if(seconds>=60){ recorder.stop(); clearInterval(timer); btn.textContent="Record again"; status.textContent="Saved "+seconds+"s"; }
+          }, 1000);
+        }).catch(function(){ status.textContent = "Microphone permission denied"; });
+      } else {
+        recorder.stop(); clearInterval(timer); btn.textContent = "Record again"; status.textContent = "Saved "+seconds+"s";
+      }
+    });
+  }
+
+  /* -------- standard category form -------- */
   function renderForm(){
     var cat = CATEGORIES[state.cat];
     var card = document.getElementById("formCard");
+    if(cat.dynamic){ renderSurveyForm(card, cat); return; }
     var howItems = cat.how.map(function(h){ return "<li>"+esc(h)+"</li>"; }).join("");
     var isSpot = state.cat==="spot";
     card.innerHTML =
@@ -525,20 +748,7 @@
         '<button type="submit" class="btn block">Save entry — '+esc(siteName(state.site))+"</button>")+
       "</form>";
 
-    card.querySelectorAll("[data-scale]").forEach(function(wrap){
-      wrap.addEventListener("click", function(e){
-        var b = e.target.closest("button"); if(!b) return;
-        wrap.querySelectorAll("button").forEach(function(x){ x.classList.remove("on"); });
-        b.classList.add("on"); wrap.dataset.value = b.getAttribute("data-val");
-      });
-    });
-    card.querySelectorAll("[data-yn]").forEach(function(wrap){
-      wrap.addEventListener("click", function(e){
-        var b = e.target.closest("button"); if(!b) return;
-        wrap.querySelectorAll("button").forEach(function(x){ x.classList.remove("on"); });
-        b.classList.add("on"); wrap.dataset.value = b.getAttribute("data-val");
-      });
-    });
+    wirePlainFields(card);
     var photoField = cat.fields.filter(function(f){return f.type==="photo";})[0];
     if(photoField){
       var inp = document.getElementById("f_"+photoField.id);
@@ -569,41 +779,34 @@
         openSpotCamera(label);
       });
     } else {
-      document.getElementById("entryForm").addEventListener("submit", function(e){ e.preventDefault(); submitEntry(cat, photoField); });
+      document.getElementById("entryForm").addEventListener("submit", function(e){ e.preventDefault(); submitEntry(cat, photoField, card); });
     }
   }
 
-  function submitEntry(cat, photoField){
+  function submitEntry(cat, photoField, root){
     if(!state.identity){ document.getElementById("gate").style.display="flex"; return; }
     var payload = {}; var missing = false;
     cat.fields.forEach(function(f){
-      var id = "f_"+f.id;
-      if(f.type==="text" || f.type==="number" || f.type==="textarea" || f.type==="select"){
-        var el = document.getElementById(id); var v = el.value;
-        if(f.req && !v){ missing = true; el.focus(); }
-        payload[f.id] = f.type==="number" ? (v?Number(v):null) : v;
-      } else if(f.type==="multiselect"){
-        var boxes = document.querySelectorAll('[data-ms="'+id+'"]:checked');
-        var vals = Array.from(boxes).map(function(b){return b.value;});
-        if(f.req && vals.length===0) missing = true;
-        payload[f.id] = vals;
-      } else if(f.type==="scale5" || f.type==="yesno"){
-        var wrap = document.getElementById(id); var v2 = wrap ? wrap.dataset.value : null;
-        if(f.req && !v2) missing = true;
-        payload[f.id] = v2 || null;
-      }
+      var r = readPlainField(f, root);
+      if(r.missing) missing = true;
+      payload[f.id] = r.value;
     });
     if(missing){ toast("Fill in the required fields first"); return; }
-    var entry = { id: uid(), catId: Object.keys(CATEGORIES).filter(function(k){return CATEGORIES[k]===cat;})[0],
-      site: state.site, author: state.identity, ts: new Date().toISOString(), data: payload };
+    saveNewEntry(Object.keys(CATEGORIES).filter(function(k){return CATEGORIES[k]===cat;})[0], payload, photoField, root);
+  }
 
+  function saveNewEntry(catId, payload, photoField, root, extra){
+    var entry = Object.assign({ id: uid(), catId: catId, site: state.site, day: state.day, author: state.identity, ts: new Date().toISOString(), data: payload }, extra||{});
     function finish(){
-      state.entries.set(entry.id, entry); persistLocal();
+      state.entries.set(entry.id, entry); state.sinceExport++; persistLocal();
       toast("Saved to this device"); renderForm(); renderLog(); renderDash();
     }
-    if(photoField && document.getElementById("f_"+photoField.id)._file){
-      downscaleToDataUrl(document.getElementById("f_"+photoField.id)._file, function(durl){ entry.localPhoto = durl; finish(); });
-      return;
+    if(photoField && root){
+      var fileInput = document.getElementById("f_"+photoField.id);
+      if(fileInput && fileInput._file){
+        downscaleToDataUrl(fileInput._file, function(durl){ entry.localPhoto = durl; finish(); });
+        return;
+      }
     }
     finish();
   }
@@ -620,6 +823,97 @@
       img.src = e.target.result;
     };
     reader.readAsDataURL(file);
+  }
+
+  /* -------- dynamic intercept survey form -------- */
+  function renderSurveyForm(card, cat){
+    var howItems = cat.how.map(function(h){ return "<li>"+esc(h)+"</li>"; }).join("");
+    card.innerHTML =
+      '<h2 style="color:'+cat.color+'">'+esc(cat.label)+"</h2>"+
+      '<p class="muted" style="margin:6px 0 4px;">'+esc(cat.blurb)+"</p>"+
+      '<details class="howto"><summary>How to run this</summary><ul class="plain" style="margin-top:8px;">'+howItems+"</ul></details>"+
+      '<hr class="soft">'+
+      '<div class="field"><label>Who are you talking to?<span class="ja">誰に聞いていますか?</span></label><div class="ptype-row" id="ptypeRow">'+
+      SURVEY_TYPES.map(function(t){ return '<button type="button" class="ptype-btn" data-pt="'+t.id+'"><b>'+esc(t.en)+'</b><small>'+esc(t.ja)+'</small></button>'; }).join("")+
+      '</div></div><div id="surveyBranch"></div>';
+
+    var ptypeRow = card.querySelector("#ptypeRow");
+    ptypeRow.querySelectorAll(".ptype-btn").forEach(function(b){
+      b.addEventListener("click", function(){
+        ptypeRow.querySelectorAll(".ptype-btn").forEach(function(x){ x.classList.remove("on"); });
+        b.classList.add("on");
+        renderBranch(b.getAttribute("data-pt"));
+      });
+    });
+
+    function renderBranch(type){
+      var branch = card.querySelector("#surveyBranch");
+      var intro = SURVEY_INTRO[type], qs = SURVEY_QUESTIONS[type];
+      var html = '<form id="surveyForm">';
+      intro.forEach(function(f){ html += fieldHtml(f); });
+      qs.forEach(function(q, i){ html += surveyQuestionHtml(q, i); });
+      html += voiceNoteHtml("surveyVoice");
+      html += '<button type="submit" class="btn block" style="margin-top:6px;">Save survey — '+esc(siteName(state.site))+"</button>";
+      html += "</form>";
+      branch.innerHTML = html;
+      wirePlainFields(branch);
+      wireMcQuestions(branch, qs);
+      wireVoiceNote(branch, "surveyVoice");
+      branch.querySelector("#surveyForm").addEventListener("submit", function(e){
+        e.preventDefault();
+        submitSurvey(type, intro, qs, branch);
+      });
+    }
+  }
+
+  function surveyQuestionHtml(q, i){
+    if(q.type==="open"){
+      return '<div class="field survey-q"><label>Q'+(i+1)+'. '+esc(q.en)+'<span class="ja">'+esc(q.ja)+'</span></label><textarea id="sq_'+q.id+'"></textarea></div>';
+    }
+    var opts = q.options.map(function(o){
+      return '<button type="button" class="mc-opt" data-val="'+esc(o.en)+'">'+esc(o.en)+'<span class="ja">'+esc(o.ja)+'</span></button>';
+    }).join("");
+    return '<div class="field survey-q"><label>Q'+(i+1)+'. '+esc(q.en)+'<span class="ja">'+esc(q.ja)+'</span></label><div class="mc-options" id="sq_'+q.id+'" data-multi="'+(q.type==="multi")+'">'+opts+"</div></div>";
+  }
+
+  function wireMcQuestions(root, qs){
+    qs.forEach(function(q){
+      if(q.type==="open") return;
+      var wrap = root.querySelector("#sq_"+q.id);
+      var multi = wrap.dataset.multi === "true";
+      wrap.querySelectorAll(".mc-opt").forEach(function(btn){
+        btn.addEventListener("click", function(){
+          if(multi){
+            btn.classList.toggle("on");
+          } else {
+            wrap.querySelectorAll(".mc-opt").forEach(function(x){ x.classList.remove("on"); });
+            btn.classList.add("on");
+          }
+          var chosen = Array.from(wrap.querySelectorAll(".mc-opt.on")).map(function(x){ return x.getAttribute("data-val"); });
+          wrap.dataset.value = multi ? JSON.stringify(chosen) : (chosen[0]||"");
+        });
+      });
+    });
+  }
+
+  function submitSurvey(type, intro, qs, root){
+    if(!state.identity){ document.getElementById("gate").style.display="flex"; return; }
+    var payload = { personType: type };
+    var missing = false;
+    intro.forEach(function(f){ var r = readPlainField(f, root); if(r.missing) missing = true; payload[f.id] = r.value; });
+    qs.forEach(function(q){
+      if(q.type==="open"){
+        var el = root.querySelector("#sq_"+q.id); payload[q.id] = el ? el.value : "";
+      } else {
+        var wrap = root.querySelector("#sq_"+q.id);
+        var multi = wrap.dataset.multi === "true";
+        payload[q.id] = multi ? JSON.parse(wrap.dataset.value||"[]") : (wrap.dataset.value||"");
+      }
+    });
+    if(missing){ toast("Fill in the required fields first"); return; }
+    var voiceWrap = root.querySelector("#surveyVoice");
+    var extra = voiceWrap && voiceWrap._dataUrl ? {audioNote: voiceWrap._dataUrl} : {};
+    saveNewEntry("survey", payload, null, null, extra);
   }
 
   /* ---------------- computer vision ---------------- */
@@ -647,7 +941,6 @@
     document.body.appendChild(el);
     return el;
   }
-
   function startStream(video, statusEl, onReady){
     navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}}, audio:false}).then(function(stream){
       video.srcObject = stream;
@@ -656,13 +949,11 @@
       statusEl.textContent = "Camera unavailable: " + (err && err.name ? err.name : "permission denied");
     });
   }
-
   function stopStream(video){
     var s = video.srcObject;
     if(s){ s.getTracks().forEach(function(t){ t.stop(); }); }
     video.srcObject = null;
   }
-
   function positionCanvas(video, canvas, stage){
     var vRect = video.getBoundingClientRect(), sRect = stage.getBoundingClientRect();
     canvas.style.left = (vRect.left - sRect.left) + "px";
@@ -755,7 +1046,6 @@
       }).catch(function(){});
     }
 
-    document.getElementById("camStart") || null;
     overlay.querySelector("#camStart").addEventListener("click", function(){
       if(running) return;
       statusEl.textContent = "Loading model…";
@@ -782,7 +1072,6 @@
       });
       overlay.querySelector("#discardCount").addEventListener("click", closeOverlay);
     }
-
     function closeOverlay(){
       closed = true; running = false;
       clearInterval(timer); clearInterval(intervalId);
@@ -798,7 +1087,7 @@
         stage = overlay.querySelector("#camStage"), statusEl = overlay.querySelector("#camStatus"),
         bottom = overlay.querySelector("#camBottom"), ctx = canvas.getContext("2d");
     var closed = false, running = false, intervalId = null;
-    var roi = null; // in video-native coords {x1,y1,x2,y2}
+    var roi = null;
     var occ = { on:false, since:0, peak:0, emptyStreak:0 };
     var sessions = [];
 
@@ -866,9 +1155,9 @@
     function finalizeSession(){
       var durSec = Math.round((Date.now()-occ.since)/1000);
       if(durSec < 2) return;
-      var entry = { id: uid(), catId:"spot", site: state.site, author: state.identity,
+      var entry = { id: uid(), catId:"spot", site: state.site, day: state.day, author: state.identity,
         ts: new Date(occ.since).toISOString(), data:{ spotLabel: label, durationSec: durSec, peakCount: occ.peak } };
-      state.entries.set(entry.id, entry); persistLocal();
+      state.entries.set(entry.id, entry); state.sinceExport++; persistLocal();
       sessions.unshift(entry);
       renderSessionList();
       renderLog(); renderDash();
@@ -925,19 +1214,29 @@
   }
 
   /* ---------------- log tab ---------------- */
+  function filteredEntries(dayFilter, siteFilter, authorFilter){
+    var list = Array.from(state.entries.values());
+    if(dayFilter && dayFilter!=="all") list = list.filter(function(e){return e.day===dayFilter;});
+    if(siteFilter && siteFilter!=="all") list = list.filter(function(e){return e.site===siteFilter;});
+    if(authorFilter) list = list.filter(function(e){return e.author===authorFilter;});
+    list.sort(function(a,b){ return new Date(b.ts) - new Date(a.ts); });
+    return list;
+  }
+
   function renderLogFilters(){
-    var el = document.getElementById("logFilters");
-    var chips = [{id:"all", label:"All sites"}].concat(SITES.map(function(s){return {id:s.id, label:s.name.split(" ")[0]};}));
-    el.innerHTML = chips.map(function(c){
-      return '<div class="chip'+(state.logFilterSite===c.id?" active":"")+'" data-f="'+c.id+'" style="min-width:auto;"><b>'+esc(c.label)+"</b></div>";
-    }).join("") + '<div class="chip'+(state.logFilterMine?" active":"")+'" data-f="mine" style="min-width:auto;"><b>Just me</b></div>';
-    el.querySelectorAll(".chip").forEach(function(c){
-      c.addEventListener("click", function(){
-        var f = c.getAttribute("data-f");
-        if(f==="mine") state.logFilterMine = !state.logFilterMine; else state.logFilterSite = f;
-        renderLogFilters(); renderLog();
-      });
-    });
+    var dayEl = document.getElementById("logDayFilters");
+    var dayChips = [{id:"all", label:"All days"}].concat(DAYS.map(function(d){return {id:d.id, label:d.label};}));
+    dayEl.innerHTML = dayChips.map(function(c){ return '<div class="chip'+(state.logFilterDay===c.id?" active":"")+'" data-d="'+c.id+'" style="min-width:auto;"><b>'+esc(c.label)+"</b></div>"; }).join("");
+    dayEl.querySelectorAll(".chip").forEach(function(c){ c.addEventListener("click", function(){ state.logFilterDay = c.getAttribute("data-d"); state.logFilterSite="all"; renderLogFilters(); renderLog(); }); });
+
+    var siteEl = document.getElementById("logSiteFilters");
+    var pool = state.logFilterDay==="all" ? allSites() : findDay(state.logFilterDay).sites;
+    var siteChips = [{id:"all", label:"All sites"}].concat(pool.map(function(s){return {id:s.id, label:s.name.split(" ")[0]};}));
+    siteEl.innerHTML = siteChips.map(function(c){ return '<div class="chip'+(state.logFilterSite===c.id?" active":"")+'" data-s="'+c.id+'" style="min-width:auto;"><b>'+esc(c.label)+"</b></div>"; }).join("") +
+      (state.logFilterAuthor ? '<div class="chip active" data-clearauthor="1" style="min-width:auto;"><b>'+esc(state.logFilterAuthor)+" ✕</b></div>" : "");
+    siteEl.querySelectorAll("[data-s]").forEach(function(c){ c.addEventListener("click", function(){ state.logFilterSite = c.getAttribute("data-s"); renderLogFilters(); renderLog(); }); });
+    var clearBtn = siteEl.querySelector("[data-clearauthor]");
+    if(clearBtn) clearBtn.addEventListener("click", function(){ state.logFilterAuthor = null; renderLogFilters(); renderLog(); });
   }
 
   function summaryLine(entry){
@@ -948,35 +1247,41 @@
       case "lang": return d.location+" — "+(d.languages||[]).join(", ")+" ("+d.format+", quality "+d.quality+"/5)";
       case "rest": return d.type+(d.distance?" — "+d.distance:"");
       case "food": return d.name+" ("+d.category+(d.price?", "+d.price:"")+")";
-      case "biz": return d.business+" — interviewed: "+(d.interviewed||"?");
-      case "visitor": return d.origin+" — "+(d.groupType||"")+", satisfaction "+(d.satisfaction||"?")+"/5";
       case "photo": return d.caption;
       case "spot": return d.spotLabel+" — held "+fmtDur(d.durationSec||0)+", peak "+(d.peakCount||1);
+      case "survey":
+        if(d.personType==="business") return (d.bizName||"Business")+" — "+(d.q7_painpoint ? d.q7_painpoint.slice(0,70) : "survey completed");
+        if(d.personType==="staff") return (d.orgName||"Staff")+" — "+(d.s1||"").slice(0,70);
+        if(d.personType==="tourist") return (d.origin||"Tourist")+" — "+(d.t1||"").slice(0,70);
+        return "Survey";
       default: return "";
     }
   }
 
   function renderLog(){
     if(state.tab!=="log") return;
-    var list = Array.from(state.entries.values());
-    if(state.logFilterSite!=="all") list = list.filter(function(e){return e.site===state.logFilterSite;});
-    if(state.logFilterMine) list = list.filter(function(e){return e.author===state.identity;});
-    list.sort(function(a,b){ return new Date(b.ts) - new Date(a.ts); });
+    renderLogFilters();
+    var bn = document.getElementById("backupNote");
+    bn.innerHTML = state.sinceExport>=8 ? '<div class="backup-note"><span>You have '+state.sinceExport+' entries since your last export — back them up.</span><button class="btn secondary" id="quickExport" style="padding:6px 10px;font-size:12px;">Export now</button></div>' : "";
+    var qe = document.getElementById("quickExport"); if(qe) qe.addEventListener("click", function(){ document.getElementById("exportJson").click(); });
+
+    var list = filteredEntries(state.logFilterDay, state.logFilterSite, state.logFilterAuthor);
     var el = document.getElementById("logList");
     if(list.length===0){ el.innerHTML = '<p class="muted">No entries yet — log something from the Survey tab.</p>'; return; }
     el.innerHTML = list.map(function(e){
       var cat = catInfo(e.catId);
       var photo = e.localPhoto ? '<img class="thumb" src="'+e.localPhoto+'">' : "";
+      var audio = e.audioNote ? '<audio controls src="'+e.audioNote+'"></audio>' : "";
       return '<div class="entry"><div class="entry-top"><div class="entry-tags"><span class="entry-cat" style="background:'+cat.color+'">'+esc(cat.label)+'</span><span class="muted" style="font-size:12px;">'+esc(siteName(e.site))+'</span></div><span class="entry-time">'+fmtTime(e.ts)+"</span></div>"+
         '<div class="entry-summary">'+esc(summaryLine(e))+"</div>"+
-        '<div class="entry-meta">'+esc(e.author)+"</div>"+photo+"</div>";
+        '<div class="entry-meta"><span>'+esc(e.author)+"</span><span>"+esc(dayLabel(e.day))+"</span></div>"+photo+audio+"</div>";
     }).join("");
   }
 
   function toCSV(rows){
     var esc2 = function(v){ v = v==null?"":String(v); return '"'+v.replace(/"/g,'""')+'"'; };
-    var lines = [["timestamp","site","category","author","summary"].join(",")];
-    rows.forEach(function(e){ lines.push([e.ts, siteName(e.site), catInfo(e.catId).label, e.author, summaryLine(e)].map(esc2).join(",")); });
+    var lines = [["timestamp","day","site","category","author","summary"].join(",")];
+    rows.forEach(function(e){ lines.push([e.ts, dayLabel(e.day), siteName(e.site), catInfo(e.catId).label, e.author, summaryLine(e)].map(esc2).join(",")); });
     return lines.join("\r\n");
   }
 
@@ -991,10 +1296,14 @@
   }
 
   document.getElementById("exportJson").addEventListener("click", function(){
-    downloadFile("dhde-fieldwork-"+(state.identity||"log").replace(/\s+/g,"_")+".json", JSON.stringify(Array.from(state.entries.values()), null, 2), "application/json");
+    var list = filteredEntries(state.logFilterDay, state.logFilterSite, state.logFilterAuthor);
+    downloadFile("dhde-fieldwork-"+(state.identity||"log").replace(/\s+/g,"_")+".json", JSON.stringify(list, null, 2), "application/json");
+    state.sinceExport = 0; persistLocal(); renderLog();
   });
   document.getElementById("exportCsv").addEventListener("click", function(){
-    downloadFile("dhde-fieldwork-"+(state.identity||"log").replace(/\s+/g,"_")+".csv", toCSV(Array.from(state.entries.values())), "text/csv");
+    var list = filteredEntries(state.logFilterDay, state.logFilterSite, state.logFilterAuthor);
+    downloadFile("dhde-fieldwork-"+(state.identity||"log").replace(/\s+/g,"_")+".csv", toCSV(list), "text/csv");
+    state.sinceExport = 0; persistLocal(); renderLog();
   });
   document.getElementById("exportSummary").addEventListener("click", function(){
     downloadFile("dhde-fieldwork-summary.csv", toCSV(Array.from(state.entries.values())), "text/csv");
@@ -1012,7 +1321,12 @@
   /* ---------------- dashboard tab ---------------- */
   function renderDash(){
     if(state.tab!=="dash") return;
-    var all = Array.from(state.entries.values());
+    var dayEl = document.getElementById("dashDayFilters");
+    var dayChips = [{id:"all", label:"All days"}].concat(DAYS.map(function(d){return {id:d.id, label:d.label};}));
+    dayEl.innerHTML = dayChips.map(function(c){ return '<div class="chip'+(state.dashFilterDay===c.id?" active":"")+'" data-d="'+c.id+'" style="min-width:auto;"><b>'+esc(c.label)+"</b></div>"; }).join("");
+    dayEl.querySelectorAll(".chip").forEach(function(c){ c.addEventListener("click", function(){ state.dashFilterDay = c.getAttribute("data-d"); renderDash(); }); });
+
+    var all = filteredEntries(state.dashFilterDay, "all", null);
     var kpis = [
       {v: all.length, l:"Total entries"},
       {v: new Set(all.map(function(e){return e.author;})).size, l:"Contributors"},
@@ -1028,30 +1342,41 @@
     }).join("");
 
     var now = new Date(); var flags = [];
-    SITES.forEach(function(s){
-      var endHH = s.window.split("–")[1] || "";
-      var passed = false; var m = endHH.match(/(\d{1,2}):(\d{2})/);
-      if(m){ var end = new Date(); end.setHours(Number(m[1]), Number(m[2]), 0, 0); passed = now > end; }
-      var siteEntries = all.filter(function(e){return e.site===s.id;});
-      CAT_ORDER.forEach(function(cid){
-        var has = siteEntries.some(function(e){return e.catId===cid;});
-        if(!has && (passed || siteEntries.length>0)) flags.push(s.name+" — no "+CATEGORIES[cid].label.toLowerCase()+" logged yet");
+    var daysToCheck = state.dashFilterDay==="all" ? DAYS : [findDay(state.dashFilterDay)];
+    daysToCheck.forEach(function(d){
+      d.sites.forEach(function(s){
+        var endHH = s.window.split("–")[1] || "";
+        var passed = false; var m = endHH.match(/(\d{1,2}):(\d{2})/);
+        if(m && d.date === now.toISOString().slice(0,10)){ var end = new Date(); end.setHours(Number(m[1]), Number(m[2]), 0, 0); passed = now > end; }
+        else if(d.date < now.toISOString().slice(0,10)){ passed = true; }
+        var siteEntries = all.filter(function(e){return e.site===s.id;});
+        CAT_ORDER.forEach(function(cid){
+          var has = siteEntries.some(function(e){return e.catId===cid;});
+          if(!has && (passed || siteEntries.length>0)) flags.push(d.label+" · "+s.name+" — no "+CATEGORIES[cid].label.toLowerCase()+" logged yet");
+        });
       });
     });
     var gapEl = document.getElementById("gapFlags");
     gapEl.innerHTML = flags.length===0 ? '<p class="muted" style="margin-top:10px;">No coverage gaps flagged yet.</p>' :
-      '<div style="margin-top:6px;">'+flags.slice(0,8).map(function(f){ return '<div class="gap-flag"><span class="dot"></span><span class="muted">'+esc(f)+"</span></div>"; }).join("")+"</div>";
+      '<div style="margin-top:6px;">'+flags.slice(0,10).map(function(f){ return '<div class="gap-flag"><span class="dot"></span><span class="muted">'+esc(f)+"</span></div>"; }).join("")+"</div>";
 
     var byPerson = {};
     all.forEach(function(e){ byPerson[e.author] = (byPerson[e.author]||0) + 1; });
     var people = Object.keys(byPerson).sort(function(a,b){ return byPerson[b]-byPerson[a]; });
     document.getElementById("personList").innerHTML = people.length===0 ? '<p class="muted">No entries yet.</p>' :
-      people.map(function(p){ return '<div class="person-row"><span>'+esc(p)+'</span><span class="num">'+byPerson[p]+"</span></div>"; }).join("");
+      people.map(function(p){ return '<div class="person-row"><button data-person="'+esc(p)+'"><span>'+esc(p)+'</span><span class="num">'+byPerson[p]+"</span></button></div>"; }).join("");
+    document.querySelectorAll("[data-person]").forEach(function(b){
+      b.addEventListener("click", function(){
+        state.logFilterAuthor = b.getAttribute("data-person");
+        state.logFilterDay = state.dashFilterDay; state.logFilterSite = "all";
+        goTab("log");
+      });
+    });
   }
 
   /* ---------------- boot ---------------- */
   loadLocal();
-  renderRoster(); renderSchedule(); renderSiteChips(); renderCatChips(); renderForm(); renderLogFilters();
+  renderRoster(); renderToday(); renderSiteChips(); renderCatChips(); renderForm(); renderLogFilters();
   if(state.identity){
     document.getElementById("gate").style.display = "none";
     document.getElementById("identityName").textContent = state.identity;

@@ -1,7 +1,7 @@
 // DHDE Field Survey — offline cache.
 // Cache-first for everything we fetch (app shell + CDN model files) so the
 // app keeps working with no signal once it's been opened once over wifi.
-var CACHE = "dhde-field-survey-v1";
+var CACHE = "dhde-field-survey-v2";
 var SHELL = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", function(event){

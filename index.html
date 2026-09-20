@@ -658,14 +658,14 @@
   }
 
   function wirePlainFields(root){
-    root.querySelectorAll("[data-scale]").forEach(function(wrap){
+    root.querySelectorAll(".scale5").forEach(function(wrap){
       wrap.addEventListener("click", function(e){
         var b = e.target.closest("button"); if(!b) return;
         wrap.querySelectorAll("button").forEach(function(x){ x.classList.remove("on"); });
         b.classList.add("on"); wrap.dataset.value = b.getAttribute("data-val");
       });
     });
-    root.querySelectorAll("[data-yn]").forEach(function(wrap){
+    root.querySelectorAll(".yesno").forEach(function(wrap){
       wrap.addEventListener("click", function(e){
         var b = e.target.closest("button"); if(!b) return;
         wrap.querySelectorAll("button").forEach(function(x){ x.classList.remove("on"); });

@@ -1,0 +1,1066 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DHDE Field Survey</title>
+<meta name="description" content="Field survey app for the Sakura Science DHDE tourism fieldwork team — crowd counts, flow, signage, and service data, plus on-device camera flow/occupancy tracking.">
+<meta name="theme-color" content="#C1432B">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Noto+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  :root{
+    --bg:#F6F2E9; --surface:#FFFFFF; --surface-2:#EFE8D8;
+    --ink:#182448; --ink-soft:#4E5A7C; --accent:#C1432B; --accent-ink:#FFF7EF;
+    --line:#DED2B4; --good:#2F7D52; --warn:#B8811E; --critical:#9E2B25;
+    --cat-count:#1F5FA8; --cat-flow:#9E2B25; --cat-lang:#7A4FB0; --cat-rest:#2F7D52;
+    --cat-food:#B8811E; --cat-biz:#0E7C86; --cat-visitor:#C1432B; --cat-photo:#4E5A7C; --cat-spot:#7A4FB0;
+    --font-display:'Zen Kaku Gothic New','Hiragino Sans',sans-serif;
+    --font-body:'Noto Sans','Hiragino Sans',sans-serif;
+    --font-mono:'JetBrains Mono', ui-monospace, monospace;
+    --shadow-1:0 1px 2px rgba(24,36,72,.06),0 1px 1px rgba(24,36,72,.04);
+    --shadow-2:0 8px 24px rgba(24,36,72,.14);
+    color-scheme: light dark;
+    padding-top: env(safe-area-inset-top,0px);
+    padding-bottom: env(safe-area-inset-bottom,0px);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0F1526; --surface:#171F38; --surface-2:#1D2740;
+      --ink:#EFEADE; --ink-soft:#AAB2CE; --accent:#E36A46; --accent-ink:#1A1006;
+      --line:#2C3555; --good:#4FAE7C; --warn:#D9A73B; --critical:#E2564A;
+      --cat-count:#5B9BDE; --cat-flow:#E2564A; --cat-lang:#B292E8; --cat-rest:#4FAE7C;
+      --cat-food:#D9A73B; --cat-biz:#43C4CF; --cat-visitor:#E36A46; --cat-photo:#AAB2CE; --cat-spot:#B292E8;
+      --shadow-1:0 1px 2px rgba(0,0,0,.3); --shadow-2:0 8px 24px rgba(0,0,0,.45);
+    }
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%; margin:0;}
+  body{background:var(--bg); color:var(--ink); font-family:var(--font-body); font-size:15px; line-height:1.45; padding:0 16px; -webkit-tap-highlight-color:transparent;}
+  h1,h2,h3{font-family:var(--font-display); text-wrap:balance; margin:0;}
+  img{max-width:100%;}
+  [hidden]{display:none !important;}
+  .num{font-family:var(--font-mono); font-variant-numeric:tabular-nums;}
+  a{color:inherit;}
+  button{font-family:inherit;}
+  ::selection{background:var(--accent); color:var(--accent-ink);}
+  #app{max-width:640px; margin:0 auto; min-height:100%; display:flex; flex-direction:column;}
+
+  #gate{position:fixed; inset:0; z-index:50; background:var(--bg); display:flex; flex-direction:column;
+    padding:calc(env(safe-area-inset-top,0px) + 32px) 20px calc(env(safe-area-inset-bottom,0px) + 24px); overflow-y:auto;}
+  #gate .mark{display:flex; align-items:center; gap:10px; margin-bottom:28px;}
+  .eyebrow{font-family:var(--font-mono); font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-soft);}
+  #gate h1{font-size:26px; font-weight:900; margin-top:2px;}
+  #gate p.lede{color:var(--ink-soft); margin:10px 0 26px; max-width:46ch;}
+  .roster-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:18px;}
+  .roster-btn{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px 12px; text-align:left; font-size:14.5px; font-weight:600; color:var(--ink); cursor:pointer; box-shadow:var(--shadow-1);}
+  .roster-btn:active{transform:translateY(1px);}
+  .other-row{display:flex; gap:8px; margin-top:4px;}
+  .other-row input{flex:1;}
+  input[type="text"], input[type="number"], textarea, select{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:11px 12px; font-size:15px; color:var(--ink); font-family:inherit; width:100%;}
+  input:focus, textarea:focus, select:focus{outline:2px solid var(--accent); outline-offset:1px;}
+  textarea{resize:vertical; min-height:64px;}
+  .btn{background:var(--accent); color:var(--accent-ink); border:none; border-radius:10px; padding:12px 18px; font-weight:700; font-size:14.5px; cursor:pointer; box-shadow:var(--shadow-1);}
+  .btn:active{transform:translateY(1px);}
+  .btn.ghost{background:transparent; color:var(--ink); border:1px solid var(--line); box-shadow:none;}
+  .btn.block{width:100%;}
+  .btn[disabled]{opacity:.45; cursor:default;}
+  .btn.secondary{background:var(--surface-2); color:var(--ink); box-shadow:none; border:1px solid var(--line);}
+
+  header.topbar{position:sticky; top:env(safe-area-inset-top,0px); z-index:20; background:color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:space-between; padding:12px 0 10px; border-bottom:1px solid var(--line);}
+  header.topbar .mark{display:flex; align-items:center; gap:8px;}
+  header.topbar .mark b{font-family:var(--font-display); font-size:15px; font-weight:700;}
+  .identity-chip{display:flex; align-items:center; gap:7px; background:var(--surface); border:1px solid var(--line); border-radius:999px; padding:6px 12px 6px 6px; cursor:pointer; font-size:13px; font-weight:600;}
+  .avatar{width:22px; height:22px; border-radius:50%; background:var(--accent); color:var(--accent-ink); display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; flex:none;}
+
+  main{flex:1; padding:16px 0 8px;}
+  section.tab{display:none;}
+  section.tab.active{display:block;}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:16px; box-shadow:var(--shadow-1); margin-bottom:14px;}
+  .card h2{font-size:16px; font-weight:700;}
+  .eyebrow{font-family:var(--font-mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft);}
+
+  .sched-row{display:grid; grid-template-columns:64px 1fr; gap:12px; padding:10px 0; border-top:1px solid var(--line);}
+  .sched-row:first-child{border-top:none;}
+  .sched-row .time{font-family:var(--font-mono); font-size:12.5px; color:var(--ink-soft); padding-top:1px;}
+  .sched-row .what b{font-size:14px;}
+  .sched-row .what .note{color:var(--ink-soft); font-size:12.5px; margin-top:2px;}
+  .sched-row.field{background:color-mix(in srgb, var(--accent) 8%, transparent); margin:0 -16px; padding:10px 16px; border-radius:8px; border-top:none;}
+
+  ul.plain{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px;}
+  ul.plain li{padding-left:16px; position:relative; font-size:13.5px; color:var(--ink-soft);}
+  ul.plain li::before{content:"–"; position:absolute; left:0; color:var(--accent); font-weight:700;}
+
+  .chiprow{display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; margin:0 -2px 14px; scrollbar-width:none;}
+  .chiprow::-webkit-scrollbar{display:none;}
+  .chip{flex:none; background:var(--surface); border:1px solid var(--line); border-radius:11px; padding:9px 13px; cursor:pointer; font-size:13px; font-weight:600; color:var(--ink-soft); display:flex; flex-direction:column; gap:1px; min-width:118px;}
+  .chip b{color:var(--ink); font-size:13.5px;}
+  .chip small{font-family:var(--font-mono); font-size:10.5px; font-weight:500;}
+  .chip.active{border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset;}
+  .catchip{flex:none; border:1px solid var(--line); background:var(--surface); border-radius:999px; padding:8px 14px; font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:7px;}
+  .catchip .swatch{width:9px; height:9px; border-radius:50%; flex:none;}
+  .catchip.active{color:var(--accent-ink); border-color:transparent;}
+
+  .field{margin-bottom:14px;}
+  .field label{display:block; font-size:12.5px; font-weight:700; color:var(--ink-soft); margin-bottom:6px;}
+  .field .req{color:var(--critical);}
+  .scale5{display:flex; gap:6px;}
+  .scale5 button{flex:1; padding:10px 0; border-radius:9px; border:1px solid var(--line); background:var(--surface); font-family:var(--font-mono); font-weight:700; color:var(--ink-soft); cursor:pointer;}
+  .scale5 button.on{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}
+  .yesno{display:flex; gap:8px;}
+  .yesno button{flex:1; padding:10px 0; border-radius:9px; border:1px solid var(--line); background:var(--surface); font-weight:700; color:var(--ink-soft); cursor:pointer;}
+  .yesno button.on{background:var(--ink); color:var(--bg); border-color:var(--ink);}
+  .multiselect{display:flex; flex-wrap:wrap; gap:7px;}
+  .multiselect label{display:flex; align-items:center; gap:6px; background:var(--surface-2); border:1px solid var(--line); border-radius:999px; padding:7px 11px 7px 8px; font-size:12.5px; font-weight:600; color:var(--ink); cursor:pointer; margin:0;}
+  .multiselect input{width:14px; height:14px;}
+  .howto{margin-top:10px; padding-top:10px; border-top:1px dashed var(--line);}
+  .howto summary{cursor:pointer; font-size:12.5px; font-weight:700; color:var(--accent); list-style:none;}
+  .howto summary::-webkit-details-marker{display:none;}
+  .howto summary::before{content:"▸ ";}
+  details[open] > summary::before{content:"▾ ";}
+  .howto ul{margin-top:8px;}
+  .photo-input{display:flex; flex-direction:column; gap:8px;}
+  .photo-preview{width:100%; max-height:220px; object-fit:cover; border-radius:10px; border:1px solid var(--line); display:none;}
+  .toast{position:fixed; left:16px; right:16px; bottom:calc(env(safe-area-inset-bottom,0px) + 78px); z-index:60; background:var(--ink); color:var(--bg); border-radius:11px; padding:12px 16px; font-size:13.5px; font-weight:600; box-shadow:var(--shadow-2); opacity:0; transform:translateY(8px); transition:opacity .2s, transform .2s; pointer-events:none; max-width:640px; margin:0 auto;}
+  .toast.show{opacity:1; transform:translateY(0);}
+
+  .entry{border-top:1px solid var(--line); padding:12px 0;}
+  .entry:first-child{border-top:none;}
+  .entry-top{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:4px;}
+  .entry-tags{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+  .entry-cat{font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; color:#fff;}
+  .entry-time{font-family:var(--font-mono); font-size:11.5px; color:var(--ink-soft); flex:none;}
+  .entry-summary{font-size:14px;}
+  .entry-meta{font-size:12px; color:var(--ink-soft); margin-top:3px;}
+  .entry img.thumb{margin-top:8px; max-height:160px; border-radius:8px; border:1px solid var(--line);}
+
+  .kpi-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px;}
+  .kpi{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:12px; text-align:center;}
+  .kpi .v{font-family:var(--font-mono); font-size:22px; font-weight:700;}
+  .kpi .l{font-size:10.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; margin-top:2px;}
+  .bar-row{display:grid; grid-template-columns:120px 1fr 34px; align-items:center; gap:8px; margin-bottom:8px;}
+  .bar-row .lbl{font-size:12px; color:var(--ink-soft);}
+  .bar-track{background:var(--surface-2); border-radius:6px; height:10px; overflow:hidden;}
+  .bar-fill{height:100%; border-radius:6px;}
+  .bar-row .n{font-family:var(--font-mono); font-size:11.5px; text-align:right; color:var(--ink-soft);}
+  .gap-flag{display:flex; gap:10px; align-items:flex-start; padding:10px 0; border-top:1px solid var(--line);}
+  .gap-flag:first-child{border-top:none;}
+  .gap-flag .dot{width:8px; height:8px; border-radius:50%; background:var(--critical); margin-top:5px; flex:none;}
+  .person-row{display:flex; justify-content:space-between; padding:7px 0; border-top:1px solid var(--line); font-size:13px;}
+  .person-row:first-child{border-top:none;}
+
+  nav.tabbar{position:sticky; bottom:0; z-index:20; background:var(--surface); border-top:1px solid var(--line); display:grid; grid-template-columns:repeat(4,1fr); padding:8px 0 calc(env(safe-area-inset-bottom,0px) + 8px);}
+  nav.tabbar button{background:none; border:none; display:flex; flex-direction:column; align-items:center; gap:3px; font-size:10.5px; font-weight:700; color:var(--ink-soft); cursor:pointer; padding:4px;}
+  nav.tabbar button svg{width:20px; height:20px;}
+  nav.tabbar button.active{color:var(--accent);}
+  nav.tabbar button.active svg{stroke:var(--accent);}
+
+  textarea#importBox{font-family:var(--font-mono); font-size:11.5px; min-height:80px;}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .muted{color:var(--ink-soft); font-size:13px;}
+  hr.soft{border:none; border-top:1px solid var(--line); margin:14px 0;}
+
+  /* camera overlay */
+  .cam-overlay{position:fixed; inset:0; z-index:100; background:#000; display:flex; flex-direction:column;}
+  .cam-top{display:flex; align-items:center; justify-content:space-between; padding:calc(env(safe-area-inset-top,0px) + 10px) 14px 10px; color:#fff;}
+  .cam-top button{background:rgba(255,255,255,.15); border:none; color:#fff; border-radius:8px; padding:8px 12px; font-weight:700; font-size:13px;}
+  .cam-status{font-family:var(--font-mono); font-size:12.5px; color:#fff; opacity:.85;}
+  .cam-stage{position:relative; flex:1; overflow:hidden; background:#000;}
+  .cam-stage video{width:100%; height:100%; object-fit:contain; display:block;}
+  .cam-stage canvas{position:absolute; touch-action:none;}
+  .cam-bottom{padding:12px 14px calc(env(safe-area-inset-bottom,0px) + 14px); display:flex; flex-direction:column; gap:10px; background:#0a0a0a;}
+  .cam-counter{position:absolute; top:12px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.55); color:#fff; padding:8px 18px; border-radius:999px; font-family:var(--font-mono); font-size:20px; font-weight:700; text-align:center;}
+  .cam-counter .u{display:block; font-size:9.5px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; opacity:.75;}
+  .spot-badge{position:absolute; top:12px; left:50%; transform:translateX(-50%); padding:8px 16px; border-radius:999px; font-weight:700; font-size:13px; color:#fff;}
+  .spot-badge.free{background:rgba(47,125,82,.85);}
+  .spot-badge.occ{background:rgba(158,43,37,.9);}
+  .cam-sessions{max-height:70px; overflow-y:auto; font-family:var(--font-mono); font-size:11px; color:#cfd6ea;}
+  .cam-hint{color:#cfd6ea; font-size:12px; text-align:center;}
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="mark">
+    <svg width="30" height="30" viewBox="0 0 30 30" fill="none"><circle cx="15" cy="15" r="13" stroke="var(--accent)" stroke-width="2.4"/><path d="M15 5v20M5 15h20" stroke="var(--accent)" stroke-width="1.6"/><circle cx="15" cy="15" r="3" fill="var(--accent)"/></svg>
+    <div><div class="eyebrow">Sakura Science · DHDE</div></div>
+  </div>
+  <h1>DHDE Field Survey</h1>
+  <p class="lede">Osaka &amp; Kyoto urban tourism fieldwork — 21 September 2026. Pick your name to start logging crowd, flow, signage, and service data.</p>
+  <div class="eyebrow" style="margin-bottom:10px;">Who&rsquo;s recording?</div>
+  <div class="roster-grid" id="rosterGrid"></div>
+  <div class="other-row">
+    <input type="text" id="otherName" placeholder="Not listed? Type your name">
+    <button class="btn" id="otherGo">Go</button>
+  </div>
+</div>
+
+<div id="app">
+  <header class="topbar">
+    <div class="mark">
+      <svg width="22" height="22" viewBox="0 0 30 30" fill="none"><circle cx="15" cy="15" r="13" stroke="var(--accent)" stroke-width="2.6"/><path d="M15 5v20M5 15h20" stroke="var(--accent)" stroke-width="1.8"/><circle cx="15" cy="15" r="3" fill="var(--accent)"/></svg>
+      <b>DHDE Field Survey</b>
+    </div>
+    <div class="identity-chip" id="identityChip">
+      <span class="avatar" id="avatarInit">–</span>
+      <span id="identityName">Sign in</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="tab active" id="tab-today">
+      <div class="card">
+        <span class="eyebrow">Day 2 · Mon 21 Sep 2026 · Osaka &amp; Kyoto</span>
+        <h2 style="margin-top:6px;">Why this trip matters</h2>
+        <p class="muted" style="margin-top:8px;">The DHDE model already tracks Fukui's own sites — Tojinbo, Katsuyama, Rainbow Line, Fukui Station East — with edge-AI camera counts, JMA weather, search-intent and hotel data. Today's stops are the <b style="color:var(--ink);">benchmark side of that model</b>: high-traffic, mature tourism sites where crowd dispersal, multilingual support and merchant density are already solved (or not). Everything logged here becomes the comparison set for Fukui's suppressed-demand and congestion forecasts.</p>
+      </div>
+      <div class="card">
+        <h2>Today's route</h2>
+        <div class="sched" id="schedList"></div>
+      </div>
+      <div class="card">
+        <h2>Field conduct</h2>
+        <ul class="plain">
+          <li>Buddy up — never survey a service provider or intercept a visitor alone.</li>
+          <li>Ask permission before quoting a business owner or photographing an identifiable face.</li>
+          <li>Keep provider interviews under 3 minutes; keep an eye on the group's departure time above everything else.</li>
+          <li>Charge phones at breakfast; pack a portable battery. Open this app once over wifi before you leave — it then works offline all day.</li>
+          <li>Rain contingency: canal-side spots (Dotonbori) and steep slopes (Sannen-zaka) get slippery — note it as a flow factor if it happens.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h2>How your data reaches everyone</h2>
+        <p class="muted" style="margin-top:6px;">This app has no server — everything you log stays on your phone. At each break (lunch, the Kyoto→Fukui train, or check-in), open the <b style="color:var(--ink);">Log</b> tab, tap <b style="color:var(--ink);">Export JSON</b>, and send the file to whoever is compiling (AirDrop / LINE / email). They open the Log tab on their own phone and paste it under <b style="color:var(--ink);">Merge in a teammate's export</b>. Do this after every site so nothing gets lost.</p>
+      </div>
+    </section>
+
+    <section class="tab" id="tab-survey">
+      <div class="eyebrow" style="margin-bottom:8px;">1 · Site</div>
+      <div class="chiprow" id="siteChips"></div>
+      <div class="eyebrow" style="margin-bottom:8px;">2 · What are you recording?</div>
+      <div class="chiprow" id="catChips"></div>
+      <div class="card" id="formCard"></div>
+    </section>
+
+    <section class="tab" id="tab-log">
+      <div class="card">
+        <div class="chiprow" id="logFilters" style="margin-bottom:6px;"></div>
+        <div class="row2" style="margin-bottom:4px;">
+          <button class="btn ghost" id="exportJson">Export JSON</button>
+          <button class="btn ghost" id="exportCsv">Export CSV</button>
+        </div>
+        <details style="margin-top:10px;">
+          <summary class="muted" style="cursor:pointer; font-weight:700;">Merge in a teammate's export</summary>
+          <p class="muted" style="margin:8px 0;">Paste a teammate's exported JSON here to combine logs on this phone.</p>
+          <textarea id="importBox" placeholder="Paste exported JSON array here"></textarea>
+          <button class="btn ghost block" id="importBtn" style="margin-top:8px;">Merge into log</button>
+        </details>
+      </div>
+      <div class="card" id="logList"></div>
+    </section>
+
+    <section class="tab" id="tab-dash">
+      <div class="card">
+        <h2>Live coverage</h2>
+        <div class="kpi-grid" id="kpiGrid"></div>
+        <div id="gapFlags"></div>
+      </div>
+      <div class="card">
+        <h2>Entries by category</h2>
+        <div id="catBars"></div>
+      </div>
+      <div class="card">
+        <h2>Who's logged what</h2>
+        <div id="personList"></div>
+      </div>
+      <div class="card">
+        <p class="muted"><b style="color:var(--ink);">Local device only.</b> This dashboard reflects entries on this phone plus anything you've merged in. Merge everyone's exports before reading it as a full picture.</p>
+        <button class="btn ghost block" id="exportSummary" style="margin-top:10px;">Export summary CSV</button>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <button data-tab="today" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/></svg>Today</button>
+    <button data-tab="survey"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>Survey</button>
+    <button data-tab="log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Log</button>
+    <button data-tab="dash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V9M10 19V4M16 19v-7M22 19H2"/></svg>Dashboard</button>
+  </nav>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  var ROSTER = ["Amil Khanzada","Mohammed Sohail","Dina Belay","Jana Wasfi","Husn Shujaat","Muskaan Irfan","Muhammad Anugra Rizky Rambe","Gabriella Gunarto","Ahmad Showail","Morgan Lan","Yu Kitagawa"];
+
+  var SITES = [
+    {id:"dotonbori", name:"Dotonbori & Namba", window:"09:30–10:45", focus:"Crowding, visitor-flow circulation, multilingual signage"},
+    {id:"umeda", name:"Umeda & Osaka Station", window:"11:10–12:00", focus:"Inbound visitor behaviour (incl. lunch)"},
+    {id:"kiyomizu", name:"Kiyomizu-dera · Ninen-zaka · Sannen-zaka", window:"14:00–16:30", focus:"Crowd dispersal points, multilingual support"}
+  ];
+
+  var SCHEDULE = [
+    {t:"08:30", w:"Breakfast", n:"", field:false},
+    {t:"09:00", w:"Depart accommodation", n:"Ikuno-ku, Osaka", field:false},
+    {t:"09:30–10:45", w:"Field survey 1 — Dotonbori & Namba", n:"Crowding, flow circulation, multilingual signage", field:true},
+    {t:"11:10–12:00", w:"Field survey 2 — Umeda & Osaka Station", n:"~25 min group walk from Namba. Includes lunch. Inbound visitor behaviour", field:true},
+    {t:"12:15–13:45", w:"Move to Kyoto (JR) → Higashiyama", n:"~30 min rail. City bus 206 from Kyoto Stn toward Kitaoji for Kiyomizu — confirm stop", field:false},
+    {t:"14:00–16:30", w:"Field survey 3 — Kiyomizu-dera, Ninen-zaka, Sannen-zaka", n:"Crowd dispersal points, multilingual support", field:true},
+    {t:"17:45", w:"Kyoto → Tsuruga (Thunderbird) → Fukui", n:"Terminates at Tsuruga; reserved tickets issued", field:false},
+    {t:"19:05", w:"Arrive JR Fukui Station", n:"", field:false},
+    {t:"20:00–20:30", w:"Check in", n:"Women: 夢テラス, Sabae · Men: パレスイン福井", field:false},
+    {t:"20:30", w:"Day ends", n:"Orientation materials distributed at check-in", field:false}
+  ];
+
+  var CATEGORIES = {
+    count:{label:"Crowd Count", color:"var(--cat-count)", blurb:"Quantify how packed each pinch point is, at fixed intervals, from a fixed vantage point.",
+      how:["Stand at a clear vantage point across the pinch point (corner, bridge, doorway).","Tally everyone crossing an imaginary line for 60 seconds; repeat at the start and end of your 15-minute block.","Or use Camera assist below to have your phone count crossings automatically — check it against a manual tally now and then.","Rate ambient density 1–5: 1 free walking pace, 3 shoulder-to-shoulder in patches, 5 shuffling, can't deviate.","Note the dominant flow direction and whether it's one-way, two-way, or crossing."],
+      fields:[
+        {id:"zone", label:"Zone / landmark", type:"text", req:true, ph:"e.g. Ebisu-bashi bridge, north side"},
+        {id:"tally", label:"60-second tally (headcount)", type:"number", req:true, cam:"flow"},
+        {id:"density", label:"Density — 1 free flow → 5 jammed", type:"scale5", req:true},
+        {id:"flow", label:"Flow pattern", type:"select", req:true, options:["One-way","Two-way","Crossing / merging","Static crowd (no flow)"]},
+        {id:"notes", label:"Notes", type:"textarea"}
+      ]},
+    flow:{label:"Bottlenecks & Flow", color:"var(--cat-flow)", blurb:"Find the physical cause of a jam, not just where it happens — this feeds the gap analysis.",
+      how:["Look for the cause: a narrowing, an obstruction (cart, tour group, photo spot), a merge of two flows, or a confusing decision point.","Rate severity 1–5 by how long people are stuck and whether they spill into a vehicle lane or private property.","Propose one concrete, buildable fix — widening, one-way routing, signage, staggered hours, an alternate route."],
+      fields:[
+        {id:"location", label:"Exact location", type:"text", req:true},
+        {id:"cause", label:"Cause", type:"select", req:true, options:["Physical narrowing","Obstruction / vendor","Flow merge","Confusing decision point (signage/exits)","Queue spillover","Other"]},
+        {id:"severity", label:"Severity — 1 minor → 5 severe", type:"scale5", req:true},
+        {id:"spillover", label:"Spills into road / private property?", type:"yesno"},
+        {id:"fix", label:"Suggested fix", type:"textarea"}
+      ]},
+    lang:{label:"Multilingual Signage", color:"var(--cat-lang)", blurb:"Audit official signage against the visitor languages you actually see on the ground.",
+      how:["Check every major decision point: station exits, intersections, ticket gates, restrooms, map boards.","Record which languages are present, the format, and whether a QR code actually resolves to a translated page — test one.","Rate quality 1–5: 1 = Japanese-only, 5 = full JP/EN/Chinese/Korean + pictograms/QR."],
+      fields:[
+        {id:"location", label:"Location", type:"text", req:true},
+        {id:"languages", label:"Languages present", type:"multiselect", req:true, options:["Japanese","English","Chinese (Simplified)","Chinese (Traditional)","Korean","Thai","Pictograms only","Other"]},
+        {id:"format", label:"Format", type:"select", req:true, options:["Fixed sign","Digital board","QR code","Staff only","None"]},
+        {id:"qr", label:"QR tested and works?", type:"select", options:["N/A","Yes","No"]},
+        {id:"quality", label:"Quality — 1 poor → 5 excellent", type:"scale5", req:true},
+        {id:"gap", label:"What's missing, and for whom?", type:"textarea"}
+      ]},
+    rest:{label:"Prayer & Rest Spaces", color:"var(--cat-rest)", blurb:"Map both dedicated prayer/quiet rooms and ordinary rest infrastructure — benches, shade, water, accessible restrooms.",
+      how:["Ask staff or check posted maps for a designated prayer room, multi-faith room, or quiet room.","Separately log ordinary rest infrastructure — gaps here affect elderly and family visitors as much as prayer needs.","Note distance from the main visitor flow and whether it's signed from the street."],
+      fields:[
+        {id:"type", label:"Type found", type:"select", req:true, options:["Dedicated prayer/quiet room","Bench cluster / rest area","Shaded seating","Accessible restroom","None found nearby"]},
+        {id:"distance", label:"Distance from main path", type:"text", ph:"e.g. ~80m, 2 floors up"},
+        {id:"signed", label:"Signed from the street?", type:"yesno"},
+        {id:"notes", label:"Accessibility notes", type:"textarea"}
+      ]},
+    food:{label:"Food & Beverage Census", color:"var(--cat-food)", blurb:"Walk a fixed stretch and log every food/beverage business in order — this gives both a density count and a service-gap map.",
+      how:["Pick a fixed stretch (e.g. one side of a named street for ~150m) and log every business in order, not just landmarks.","Record category, price tier from the menu board, and an actual headcount of the queue — don't estimate.","Note whether the menu is available in other languages and whether halal/vegetarian/allergen info is visible."],
+      fields:[
+        {id:"name", label:"Business name", type:"text", req:true},
+        {id:"category", label:"Category", type:"select", req:true, options:["Cafe","Restaurant","Street food stall","Bakery","Bar/Izakaya","Convenience store","Other"]},
+        {id:"price", label:"Price tier", type:"select", options:["¥ (budget)","¥¥ (mid)","¥¥¥ (premium)"]},
+        {id:"queue", label:"Queue length (headcount)", type:"number"},
+        {id:"seating", label:"Seating estimate", type:"number"},
+        {id:"multilingualMenu", label:"Menu in other languages?", type:"yesno"},
+        {id:"dietary", label:"Halal/veg/allergen info visible?", type:"yesno"},
+        {id:"notes", label:"Notes", type:"textarea"}
+      ]},
+    biz:{label:"Service Provider Survey", color:"var(--cat-biz)", blurb:"A 3-minute conversation with a staff member or owner during a lull — always ask permission first.",
+      how:["Approach during a lull, not mid-queue. Briefly introduce the University of Fukui fieldwork and ask permission before taking notes or quoting them.","Ask: approx. peak traffic and busiest hours; whether inbound tourists are a meaningful share of revenue; their single biggest visitor-facing pain point; whether they'd take a follow-up interview.","Keep it under 3 minutes and thank them before leaving."],
+      fields:[
+        {id:"business", label:"Business name", type:"text", req:true},
+        {id:"type", label:"Business type", type:"text"},
+        {id:"interviewed", label:"Interview conducted?", type:"yesno", req:true},
+        {id:"traffic", label:"Peak traffic / busiest hours (self-reported)", type:"text"},
+        {id:"touristShare", label:"Tourist share of revenue", type:"select", options:["Low","Medium","High","Unknown"]},
+        {id:"painPoint", label:"Biggest visitor-facing pain point", type:"textarea"},
+        {id:"followup", label:"Open to follow-up interview?", type:"yesno"}
+      ]},
+    visitor:{label:"Visitor Interview", color:"var(--cat-visitor)", blurb:"A 5-question intercept with visitors who've just stopped — never mid-walk.",
+      how:["Approach visitors who've just paused (photo spot, bench, map board), not mid-walk.","Ask: origin, most comfortable language, group type, purpose of this stop, one thing that was confusing or hard to find — use a translation app where needed.","Get verbal consent before jotting notes; ask self-reported satisfaction 1–5."],
+      fields:[
+        {id:"origin", label:"Country / region of origin", type:"text", req:true},
+        {id:"language", label:"Language most comfortable in", type:"text"},
+        {id:"groupType", label:"Group type", type:"select", options:["Solo","Couple","Family","Friends","Tour group"]},
+        {id:"purpose", label:"Purpose of this stop", type:"text"},
+        {id:"painPoint", label:"What was confusing or hard to find?", type:"textarea"},
+        {id:"satisfaction", label:"Self-reported satisfaction — 1 low → 5 high", type:"scale5"}
+      ]},
+    photo:{label:"Photo Log", color:"var(--cat-photo)", blurb:"One photo per issue, taken to show evidence — not a scenic shot.",
+      how:["Take one photo per pinch point or gap you've logged, from the vantage point that best shows the issue.","Caption it with exactly what it's evidence of.","Avoid close-up identifiable faces where you can help it — this is fieldwork documentation, not tourism photography."],
+      fields:[
+        {id:"caption", label:"Caption — what is this evidence of?", type:"textarea", req:true},
+        {id:"photo", label:"Photo", type:"photo"}
+      ]},
+    spot:{label:"Spot Tracker", color:"var(--cat-spot)", blurb:"Point your camera at one popular photo spot and let it time how long each visitor or pair holds it, hands-free.",
+      how:["Find a single, well-defined photo spot (a railing, a torii, a bench with a view) where people visibly queue for their turn.","Name it, then draw a box around the spot on the camera view — drag the two corner dots.","Start monitoring and prop your phone up. It logs a session every time someone occupies then leaves the box, with dwell time and peak headcount, until you stop.","This is an estimate from an on-device model, not a precise sensor — spot-check it against a stopwatch once."],
+      fields:[
+        {id:"spotLabel", label:"Spot label", type:"text", req:true, ph:"e.g. Kiyomizu viewing deck railing"}
+      ]}
+  };
+  var CAT_ORDER = ["count","flow","lang","rest","food","biz","visitor","photo","spot"];
+
+  /* ---------------- state ---------------- */
+  var state = {
+    identity: null, site: "dotonbori", cat: "count", tab: "today",
+    entries: new Map(), logFilterSite: "all", logFilterMine: false
+  };
+
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,9); }
+  function initials(name){ var p = name.trim().split(/\s+/); return ((p[0]||"")[0]||"") + ((p[1]||"")[0]||""); }
+  function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g, function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+  function fmtTime(iso){ try{ return new Date(iso).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}); }catch(e){ return ""; } }
+  function siteName(id){ var s=SITES.filter(function(x){return x.id===id;})[0]; return s?s.name:id; }
+  function catInfo(id){ return CATEGORIES[id] || {label:id, color:"var(--ink-soft)"}; }
+  function fmtDur(sec){ var m=Math.floor(sec/60), s=sec%60; return m+":"+(s<10?"0":"")+s; }
+
+  function persistLocal(){ try{ localStorage.setItem("dhde_entries", JSON.stringify(Array.from(state.entries.values()))); }catch(e){} }
+  function loadLocal(){
+    try{
+      var raw = localStorage.getItem("dhde_entries");
+      if(raw){ JSON.parse(raw).forEach(function(e){ state.entries.set(e.id, e); }); }
+      var id = localStorage.getItem("dhde_identity");
+      if(id) state.identity = id;
+    }catch(e){}
+  }
+
+  function toast(msg){
+    var t = document.getElementById("toast");
+    t.textContent = msg; t.classList.add("show");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function(){ t.classList.remove("show"); }, 2200);
+  }
+
+  /* ---------------- identity gate ---------------- */
+  function renderRoster(){
+    var grid = document.getElementById("rosterGrid");
+    grid.innerHTML = ROSTER.map(function(n){ return '<button class="roster-btn" data-name="'+esc(n)+'">'+esc(n)+"</button>"; }).join("");
+    grid.addEventListener("click", function(e){ var b=e.target.closest(".roster-btn"); if(b) setIdentity(b.getAttribute("data-name")); });
+    document.getElementById("otherGo").addEventListener("click", function(){
+      var v = document.getElementById("otherName").value.trim(); if(v) setIdentity(v);
+    });
+  }
+  function setIdentity(name){
+    state.identity = name;
+    try{ localStorage.setItem("dhde_identity", name); }catch(e){}
+    document.getElementById("gate").style.display = "none";
+    document.getElementById("identityName").textContent = name;
+    document.getElementById("avatarInit").textContent = initials(name).toUpperCase();
+  }
+  document.getElementById("identityChip").addEventListener("click", function(){ document.getElementById("gate").style.display = "flex"; });
+
+  /* ---------------- tabs ---------------- */
+  document.querySelectorAll("nav.tabbar button").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      state.tab = btn.getAttribute("data-tab");
+      document.querySelectorAll("nav.tabbar button").forEach(function(b){ b.classList.toggle("active", b===btn); });
+      document.querySelectorAll("section.tab").forEach(function(s){ s.classList.remove("active"); });
+      document.getElementById("tab-"+state.tab).classList.add("active");
+      if(state.tab==="log") renderLog();
+      if(state.tab==="dash") renderDash();
+    });
+  });
+
+  function renderSchedule(){
+    document.getElementById("schedList").innerHTML = SCHEDULE.map(function(r){
+      return '<div class="sched-row'+(r.field?" field":"")+'"><div class="time">'+esc(r.t)+'</div><div class="what"><b>'+esc(r.w)+'</b>'+(r.n?'<div class="note">'+esc(r.n)+"</div>":"")+"</div></div>";
+    }).join("");
+  }
+
+  function renderSiteChips(){
+    var el = document.getElementById("siteChips");
+    el.innerHTML = SITES.map(function(s){
+      return '<div class="chip'+(s.id===state.site?" active":"")+'" data-site="'+s.id+'"><b>'+esc(s.name)+"</b><small>"+esc(s.window)+"</small></div>";
+    }).join("");
+    el.querySelectorAll(".chip").forEach(function(c){ c.addEventListener("click", function(){ state.site = c.getAttribute("data-site"); renderSiteChips(); }); });
+  }
+  function renderCatChips(){
+    var el = document.getElementById("catChips");
+    el.innerHTML = CAT_ORDER.map(function(id){
+      var c = CATEGORIES[id];
+      return '<div class="catchip'+(id===state.cat?" active":"")+'" data-cat="'+id+'" style="'+(id===state.cat?"background:"+c.color+";":"")+'"><span class="swatch" style="background:'+c.color+'"></span>'+esc(c.label)+"</div>";
+    }).join("");
+    el.querySelectorAll(".catchip").forEach(function(c){ c.addEventListener("click", function(){ state.cat = c.getAttribute("data-cat"); renderCatChips(); renderForm(); }); });
+  }
+
+  function fieldHtml(f){
+    var reqMark = f.req ? ' <span class="req">*</span>' : "";
+    var id = "f_"+f.id;
+    var camBtn = f.cam ? ' <button type="button" class="btn secondary" data-camfor="'+id+'" data-cammode="'+f.cam+'" style="margin-left:6px; padding:6px 10px; font-size:11.5px;">Camera assist</button>' : "";
+    if(f.type==="text") return '<div class="field"><label for="'+id+'">'+esc(f.label)+reqMark+'</label><input type="text" id="'+id+'" placeholder="'+esc(f.ph||"")+'"></div>';
+    if(f.type==="number") return '<div class="field"><label for="'+id+'">'+esc(f.label)+reqMark+camBtn+'</label><input type="number" inputmode="numeric" id="'+id+'"></div>';
+    if(f.type==="textarea") return '<div class="field"><label for="'+id+'">'+esc(f.label)+reqMark+'</label><textarea id="'+id+'" placeholder="'+esc(f.ph||"")+'"></textarea></div>';
+    if(f.type==="select"){
+      var opts = '<option value="">Select…</option>'+f.options.map(function(o){return '<option value="'+esc(o)+'">'+esc(o)+"</option>";}).join("");
+      return '<div class="field"><label for="'+id+'">'+esc(f.label)+reqMark+'</label><select id="'+id+'">'+opts+"</select></div>";
+    }
+    if(f.type==="multiselect"){
+      var boxes = f.options.map(function(o){ return '<label><input type="checkbox" value="'+esc(o)+'" data-ms="'+id+'">'+esc(o)+"</label>"; }).join("");
+      return '<div class="field"><label>'+esc(f.label)+reqMark+'</label><div class="multiselect" id="'+id+'">'+boxes+"</div></div>";
+    }
+    if(f.type==="scale5"){
+      var btns = [1,2,3,4,5].map(function(n){ return '<button type="button" data-scale="'+id+'" data-val="'+n+'">'+n+"</button>"; }).join("");
+      return '<div class="field"><label>'+esc(f.label)+reqMark+'</label><div class="scale5" id="'+id+'">'+btns+"</div></div>";
+    }
+    if(f.type==="yesno") return '<div class="field"><label>'+esc(f.label)+reqMark+'</label><div class="yesno" id="'+id+'"><button type="button" data-yn="'+id+'" data-val="yes">Yes</button><button type="button" data-yn="'+id+'" data-val="no">No</button></div></div>';
+    if(f.type==="photo") return '<div class="field"><label>'+esc(f.label)+'</label><div class="photo-input"><input type="file" accept="image/*" capture="environment" id="'+id+'"><img class="photo-preview" id="'+id+'_prev"></div></div>';
+    return "";
+  }
+
+  function renderForm(){
+    var cat = CATEGORIES[state.cat];
+    var card = document.getElementById("formCard");
+    var howItems = cat.how.map(function(h){ return "<li>"+esc(h)+"</li>"; }).join("");
+    var isSpot = state.cat==="spot";
+    card.innerHTML =
+      '<h2 style="color:'+cat.color+'">'+esc(cat.label)+"</h2>"+
+      '<p class="muted" style="margin:6px 0 4px;">'+esc(cat.blurb)+"</p>"+
+      '<details class="howto"><summary>How to record this</summary><ul class="plain" style="margin-top:8px;">'+howItems+"</ul></details>"+
+      '<hr class="soft">'+
+      '<form id="entryForm">'+cat.fields.map(fieldHtml).join("")+
+      (isSpot ? '<button type="button" id="startSpot" class="btn block">Start monitoring this spot</button>' :
+        '<button type="submit" class="btn block">Save entry — '+esc(siteName(state.site))+"</button>")+
+      "</form>";
+
+    card.querySelectorAll("[data-scale]").forEach(function(wrap){
+      wrap.addEventListener("click", function(e){
+        var b = e.target.closest("button"); if(!b) return;
+        wrap.querySelectorAll("button").forEach(function(x){ x.classList.remove("on"); });
+        b.classList.add("on"); wrap.dataset.value = b.getAttribute("data-val");
+      });
+    });
+    card.querySelectorAll("[data-yn]").forEach(function(wrap){
+      wrap.addEventListener("click", function(e){
+        var b = e.target.closest("button"); if(!b) return;
+        wrap.querySelectorAll("button").forEach(function(x){ x.classList.remove("on"); });
+        b.classList.add("on"); wrap.dataset.value = b.getAttribute("data-val");
+      });
+    });
+    var photoField = cat.fields.filter(function(f){return f.type==="photo";})[0];
+    if(photoField){
+      var inp = document.getElementById("f_"+photoField.id);
+      inp.addEventListener("change", function(){
+        var file = inp.files[0]; if(!file) return;
+        var prev = document.getElementById("f_"+photoField.id+"_prev");
+        var reader = new FileReader();
+        reader.onload = function(ev){ prev.src = ev.target.result; prev.style.display="block"; };
+        reader.readAsDataURL(file);
+        inp._file = file;
+      });
+    }
+    var camBtn = card.querySelector("[data-camfor]");
+    if(camBtn){
+      camBtn.addEventListener("click", function(){
+        openFlowCamera(function(result){
+          var target = document.getElementById(camBtn.getAttribute("data-camfor"));
+          if(target){ target.value = result.crossings; }
+          toast("Filled tally: "+result.crossings+" in "+result.durationSec+"s");
+        });
+      });
+    }
+    if(isSpot){
+      document.getElementById("startSpot").addEventListener("click", function(){
+        var labelInput = document.getElementById("f_spotLabel");
+        var label = labelInput.value.trim();
+        if(!label){ toast("Name the spot first"); labelInput.focus(); return; }
+        openSpotCamera(label);
+      });
+    } else {
+      document.getElementById("entryForm").addEventListener("submit", function(e){ e.preventDefault(); submitEntry(cat, photoField); });
+    }
+  }
+
+  function submitEntry(cat, photoField){
+    if(!state.identity){ document.getElementById("gate").style.display="flex"; return; }
+    var payload = {}; var missing = false;
+    cat.fields.forEach(function(f){
+      var id = "f_"+f.id;
+      if(f.type==="text" || f.type==="number" || f.type==="textarea" || f.type==="select"){
+        var el = document.getElementById(id); var v = el.value;
+        if(f.req && !v){ missing = true; el.focus(); }
+        payload[f.id] = f.type==="number" ? (v?Number(v):null) : v;
+      } else if(f.type==="multiselect"){
+        var boxes = document.querySelectorAll('[data-ms="'+id+'"]:checked');
+        var vals = Array.from(boxes).map(function(b){return b.value;});
+        if(f.req && vals.length===0) missing = true;
+        payload[f.id] = vals;
+      } else if(f.type==="scale5" || f.type==="yesno"){
+        var wrap = document.getElementById(id); var v2 = wrap ? wrap.dataset.value : null;
+        if(f.req && !v2) missing = true;
+        payload[f.id] = v2 || null;
+      }
+    });
+    if(missing){ toast("Fill in the required fields first"); return; }
+    var entry = { id: uid(), catId: Object.keys(CATEGORIES).filter(function(k){return CATEGORIES[k]===cat;})[0],
+      site: state.site, author: state.identity, ts: new Date().toISOString(), data: payload };
+
+    function finish(){
+      state.entries.set(entry.id, entry); persistLocal();
+      toast("Saved to this device"); renderForm(); renderLog(); renderDash();
+    }
+    if(photoField && document.getElementById("f_"+photoField.id)._file){
+      downscaleToDataUrl(document.getElementById("f_"+photoField.id)._file, function(durl){ entry.localPhoto = durl; finish(); });
+      return;
+    }
+    finish();
+  }
+
+  function downscaleToDataUrl(file, cb){
+    var img = new Image(); var reader = new FileReader();
+    reader.onload = function(e){
+      img.onload = function(){
+        var maxW = 900; var scale = Math.min(1, maxW/img.width);
+        var c = document.createElement("canvas"); c.width = img.width*scale; c.height = img.height*scale;
+        c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+        cb(c.toDataURL("image/jpeg", 0.72));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  /* ---------------- computer vision ---------------- */
+  var CV = { model:null, promise:null,
+    load:function(onStatus){
+      if(this.model) return Promise.resolve(this.model);
+      if(this.promise) return this.promise;
+      if(onStatus) onStatus("Loading detection model (first time needs internet)…");
+      var self=this;
+      this.promise = window.cocoSsd.load({base:"lite_mobilenet_v2"}).then(function(m){
+        self.model = m; if(onStatus) onStatus("Model ready");
+        return m;
+      }).catch(function(err){ self.promise=null; throw err; });
+      return this.promise;
+    }
+  };
+
+  function buildOverlay(){
+    var el = document.createElement("div");
+    el.className = "cam-overlay";
+    el.innerHTML =
+      '<div class="cam-top"><button id="camClose">Close</button><div class="cam-status" id="camStatus">Starting camera…</div><div style="width:52px"></div></div>'+
+      '<div class="cam-stage" id="camStage"><video id="camVideo" playsinline autoplay muted></video><canvas id="camCanvas"></canvas></div>'+
+      '<div class="cam-bottom" id="camBottom"></div>';
+    document.body.appendChild(el);
+    return el;
+  }
+
+  function startStream(video, statusEl, onReady){
+    navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}}, audio:false}).then(function(stream){
+      video.srcObject = stream;
+      video.onloadedmetadata = function(){ video.play(); onReady(stream); };
+    }).catch(function(err){
+      statusEl.textContent = "Camera unavailable: " + (err && err.name ? err.name : "permission denied");
+    });
+  }
+
+  function stopStream(video){
+    var s = video.srcObject;
+    if(s){ s.getTracks().forEach(function(t){ t.stop(); }); }
+    video.srcObject = null;
+  }
+
+  function positionCanvas(video, canvas, stage){
+    var vRect = video.getBoundingClientRect(), sRect = stage.getBoundingClientRect();
+    canvas.style.left = (vRect.left - sRect.left) + "px";
+    canvas.style.top = (vRect.top - sRect.top) + "px";
+    canvas.style.width = vRect.width + "px";
+    canvas.style.height = vRect.height + "px";
+    canvas.width = Math.round(vRect.width);
+    canvas.height = Math.round(vRect.height);
+  }
+
+  function openFlowCamera(onResult){
+    var overlay = buildOverlay();
+    var video = overlay.querySelector("#camVideo"), canvas = overlay.querySelector("#camCanvas"),
+        stage = overlay.querySelector("#camStage"), statusEl = overlay.querySelector("#camStatus"),
+        bottom = overlay.querySelector("#camBottom"), ctx = canvas.getContext("2d");
+    var closed = false, running = false, timer = null, intervalId = null, elapsed = 0;
+    var lineY = null, tracks = [], crossings = 0;
+
+    bottom.innerHTML = '<p class="cam-hint">Drag the yellow line across the path people walk through. Tap Start when ready.</p>'+
+      '<button id="camStart" class="btn block">Start 60s count</button>';
+
+    function resize(){ positionCanvas(video, canvas, stage); if(lineY===null) lineY = video.videoHeight/2; draw([]); }
+    startStream(video, statusEl, function(){ statusEl.textContent="Position the line, then start"; resize(); });
+    window.addEventListener("resize", resize);
+
+    function videoToCanvasY(y){ return canvas.height ? y*(canvas.height/video.videoHeight) : y; }
+    function canvasToVideoY(y){ return video.videoHeight ? y*(video.videoHeight/canvas.height) : y; }
+    function sx(){ return canvas.width / (video.videoWidth||1); }
+
+    function draw(persons){
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      if(lineY!==null){
+        var cy = videoToCanvasY(lineY);
+        ctx.strokeStyle = "#ffd23f"; ctx.lineWidth = 3; ctx.setLineDash([10,6]);
+        ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(canvas.width, cy); ctx.stroke(); ctx.setLineDash([]);
+      }
+      var s = sx();
+      persons.forEach(function(p){
+        var b = p.bbox;
+        ctx.strokeStyle = "#4FAE7C"; ctx.lineWidth = 2;
+        ctx.strokeRect(b[0]*s, b[1]*s, b[2]*s, b[3]*s);
+      });
+      var badge = overlay.querySelector(".cam-counter");
+      if(!badge){ badge = document.createElement("div"); badge.className="cam-counter"; stage.appendChild(badge); }
+      badge.innerHTML = crossings + '<span class="u">crossings · '+elapsed+'s</span>';
+    }
+
+    var dragging = false;
+    canvas.addEventListener("touchstart", function(e){
+      var t = e.touches[0], r = canvas.getBoundingClientRect();
+      var y = t.clientY - r.top, cy = videoToCanvasY(lineY);
+      if(Math.abs(y-cy) < 40){ dragging = true; e.preventDefault(); }
+    }, {passive:false});
+    canvas.addEventListener("touchmove", function(e){
+      if(!dragging) return; e.preventDefault();
+      var t = e.touches[0], r = canvas.getBoundingClientRect();
+      lineY = canvasToVideoY(Math.max(0, Math.min(canvas.height, t.clientY - r.top)));
+      draw([]);
+    }, {passive:false});
+    canvas.addEventListener("touchend", function(){ dragging = false; });
+
+    function tick(){
+      if(!running || closed) return;
+      CV.model.detect(video).then(function(preds){
+        if(closed) return;
+        var persons = preds.filter(function(p){ return p.class==="person" && p.score>0.5; });
+        var centroids = persons.map(function(p){ var b=p.bbox; return {x:b[0]+b[2]/2, y:b[1]+b[3]/2}; });
+        var used = new Array(tracks.length).fill(false);
+        centroids.forEach(function(c){
+          var best=-1, bestDist=Infinity;
+          tracks.forEach(function(tr,i){
+            if(used[i]) return;
+            var d = Math.hypot(tr.x-c.x, tr.y-c.y);
+            if(d<bestDist){ bestDist=d; best=i; }
+          });
+          var maxDist = (video.videoWidth||640)*0.18;
+          var side = c.y < lineY ? "A" : "B";
+          if(best>=0 && bestDist<maxDist){
+            var tr = tracks[best];
+            if(tr.side && tr.side!==side && (Date.now()-tr.lastCross>900)){
+              crossings++; tr.lastCross = Date.now();
+            }
+            tr.side = side; tr.x=c.x; tr.y=c.y; tr.lastSeen=Date.now(); used[best]=true;
+          } else {
+            tracks.push({x:c.x,y:c.y,side:side,lastSeen:Date.now(),lastCross:0});
+          }
+        });
+        tracks = tracks.filter(function(t){ return Date.now()-t.lastSeen < 1400; });
+        draw(persons);
+      }).catch(function(){});
+    }
+
+    document.getElementById("camStart") || null;
+    overlay.querySelector("#camStart").addEventListener("click", function(){
+      if(running) return;
+      statusEl.textContent = "Loading model…";
+      CV.load(function(msg){ statusEl.textContent = msg; }).then(function(){
+        running = true; elapsed = 0; crossings = 0; tracks = [];
+        statusEl.textContent = "Counting…";
+        overlay.querySelector("#camStart").textContent = "Stop now";
+        overlay.querySelector("#camStart").onclick = finishCounting;
+        timer = setInterval(function(){ elapsed++; draw([]); if(elapsed>=60) finishCounting(); }, 1000);
+        intervalId = setInterval(tick, 350);
+      }).catch(function(){ statusEl.textContent = "Couldn't load the model — check your connection."; });
+    });
+
+    function finishCounting(){
+      if(!running) return;
+      running = false;
+      clearInterval(timer); clearInterval(intervalId);
+      statusEl.textContent = "Done";
+      bottom.innerHTML = '<p class="cam-hint">'+crossings+' crossings in '+elapsed+'s.</p>'+
+        '<button id="useCount" class="btn block">Use this number</button>'+
+        '<button id="discardCount" class="btn ghost block">Discard</button>';
+      overlay.querySelector("#useCount").addEventListener("click", function(){
+        closeOverlay(); onResult({crossings:crossings, durationSec:elapsed});
+      });
+      overlay.querySelector("#discardCount").addEventListener("click", closeOverlay);
+    }
+
+    function closeOverlay(){
+      closed = true; running = false;
+      clearInterval(timer); clearInterval(intervalId);
+      window.removeEventListener("resize", resize);
+      stopStream(video); overlay.remove();
+    }
+    overlay.querySelector("#camClose").addEventListener("click", closeOverlay);
+  }
+
+  function openSpotCamera(label){
+    var overlay = buildOverlay();
+    var video = overlay.querySelector("#camVideo"), canvas = overlay.querySelector("#camCanvas"),
+        stage = overlay.querySelector("#camStage"), statusEl = overlay.querySelector("#camStatus"),
+        bottom = overlay.querySelector("#camBottom"), ctx = canvas.getContext("2d");
+    var closed = false, running = false, intervalId = null;
+    var roi = null; // in video-native coords {x1,y1,x2,y2}
+    var occ = { on:false, since:0, peak:0, emptyStreak:0 };
+    var sessions = [];
+
+    bottom.innerHTML = '<p class="cam-hint">Drag the two dots to box in the spot, then Start.</p><button id="spotStart" class="btn block">Start monitoring</button>'+
+      '<div class="cam-sessions" id="spotSessions"></div>';
+
+    function vx(x){ return x*(canvas.width/(video.videoWidth||1)); }
+    function vy(y){ return y*(canvas.height/(video.videoHeight||1)); }
+    function toVideoX(x){ return x*((video.videoWidth||1)/canvas.width); }
+    function toVideoY(y){ return y*((video.videoHeight||1)/canvas.height); }
+
+    function resize(){
+      positionCanvas(video, canvas, stage);
+      if(!roi){
+        var w = video.videoWidth||640, h = video.videoHeight||480;
+        roi = {x1:w*0.25, y1:h*0.3, x2:w*0.75, y2:h*0.75};
+      }
+      draw([]);
+    }
+    startStream(video, statusEl, function(){ statusEl.textContent = "Draw the box, then start"; resize(); });
+    window.addEventListener("resize", resize);
+
+    function draw(persons){
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      if(roi){
+        var x1=vx(roi.x1), y1=vy(roi.y1), x2=vx(roi.x2), y2=vy(roi.y2);
+        ctx.strokeStyle = occ.on ? "#E2564A" : "#4FAE7C"; ctx.lineWidth = 3;
+        ctx.strokeRect(x1, y1, x2-x1, y2-y1);
+        [["tl",x1,y1],["br",x2,y2]].forEach(function(h){
+          ctx.beginPath(); ctx.arc(h[1], h[2], 12, 0, Math.PI*2);
+          ctx.fillStyle = "#ffd23f"; ctx.fill();
+        });
+      }
+      var s = canvas.width/(video.videoWidth||1);
+      (persons||[]).forEach(function(p){
+        var b = p.bbox;
+        ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.lineWidth = 1.5;
+        ctx.strokeRect(b[0]*s, b[1]*s, b[2]*s, b[3]*s);
+      });
+      var badge = overlay.querySelector(".spot-badge");
+      if(!badge){ badge = document.createElement("div"); badge.className="spot-badge"; stage.appendChild(badge); }
+      if(occ.on){ badge.className = "spot-badge occ"; badge.textContent = "OCCUPIED · " + fmtDur(Math.floor((Date.now()-occ.since)/1000)); }
+      else { badge.className = "spot-badge free"; badge.textContent = "FREE"; }
+    }
+
+    var dragHandle = null;
+    canvas.addEventListener("touchstart", function(e){
+      var t = e.touches[0], r = canvas.getBoundingClientRect();
+      var x = t.clientX-r.left, y = t.clientY-r.top;
+      var x1=vx(roi.x1), y1=vy(roi.y1), x2=vx(roi.x2), y2=vy(roi.y2);
+      if(Math.hypot(x-x1,y-y1)<26){ dragHandle = "tl"; e.preventDefault(); }
+      else if(Math.hypot(x-x2,y-y2)<26){ dragHandle = "br"; e.preventDefault(); }
+    }, {passive:false});
+    canvas.addEventListener("touchmove", function(e){
+      if(!dragHandle) return; e.preventDefault();
+      var t = e.touches[0], r = canvas.getBoundingClientRect();
+      var x = Math.max(0,Math.min(canvas.width, t.clientX-r.left));
+      var y = Math.max(0,Math.min(canvas.height, t.clientY-r.top));
+      if(dragHandle==="tl"){ roi.x1 = toVideoX(x); roi.y1 = toVideoY(y); }
+      else { roi.x2 = toVideoX(x); roi.y2 = toVideoY(y); }
+      draw([]);
+    }, {passive:false});
+    canvas.addEventListener("touchend", function(){ dragHandle = null; });
+
+    function finalizeSession(){
+      var durSec = Math.round((Date.now()-occ.since)/1000);
+      if(durSec < 2) return;
+      var entry = { id: uid(), catId:"spot", site: state.site, author: state.identity,
+        ts: new Date(occ.since).toISOString(), data:{ spotLabel: label, durationSec: durSec, peakCount: occ.peak } };
+      state.entries.set(entry.id, entry); persistLocal();
+      sessions.unshift(entry);
+      renderSessionList();
+      renderLog(); renderDash();
+    }
+    function renderSessionList(){
+      overlay.querySelector("#spotSessions").innerHTML = sessions.slice(0,6).map(function(s){
+        return fmtTime(s.ts)+" — "+fmtDur(s.data.durationSec)+" (peak "+s.data.peakCount+")";
+      }).join("<br>");
+    }
+
+    function tick(){
+      if(!running || closed) return;
+      CV.model.detect(video).then(function(preds){
+        if(closed) return;
+        var persons = preds.filter(function(p){ return p.class==="person" && p.score>0.5; });
+        var x1=Math.min(roi.x1,roi.x2), x2=Math.max(roi.x1,roi.x2), y1=Math.min(roi.y1,roi.y2), y2=Math.max(roi.y1,roi.y2);
+        var inside = persons.filter(function(p){
+          var b=p.bbox, cx=b[0]+b[2]/2, cy=b[1]+b[3]/2;
+          return cx>=x1 && cx<=x2 && cy>=y1 && cy<=y2;
+        });
+        if(inside.length>0){
+          if(!occ.on){ occ.on = true; occ.since = Date.now(); occ.peak = inside.length; }
+          else { occ.peak = Math.max(occ.peak, inside.length); }
+          occ.emptyStreak = 0;
+        } else if(occ.on){
+          occ.emptyStreak++;
+          if(occ.emptyStreak>=2){ finalizeSession(); occ.on=false; occ.emptyStreak=0; }
+        }
+        draw(persons);
+      }).catch(function(){});
+    }
+
+    overlay.querySelector("#spotStart").addEventListener("click", function(){
+      if(running) return;
+      statusEl.textContent = "Loading model…";
+      CV.load(function(msg){ statusEl.textContent = msg; }).then(function(){
+        running = true; statusEl.textContent = "Monitoring "+label;
+        overlay.querySelector("#spotStart").textContent = "Done";
+        overlay.querySelector("#spotStart").onclick = stopMonitoring;
+        intervalId = setInterval(tick, 500);
+      }).catch(function(){ statusEl.textContent = "Couldn't load the model — check your connection."; });
+    });
+
+    function stopMonitoring(){
+      if(occ.on) finalizeSession();
+      closed = true; running = false;
+      clearInterval(intervalId);
+      window.removeEventListener("resize", resize);
+      stopStream(video); overlay.remove();
+      renderForm();
+      toast(sessions.length+" session(s) saved for "+label);
+    }
+    overlay.querySelector("#camClose").addEventListener("click", stopMonitoring);
+  }
+
+  /* ---------------- log tab ---------------- */
+  function renderLogFilters(){
+    var el = document.getElementById("logFilters");
+    var chips = [{id:"all", label:"All sites"}].concat(SITES.map(function(s){return {id:s.id, label:s.name.split(" ")[0]};}));
+    el.innerHTML = chips.map(function(c){
+      return '<div class="chip'+(state.logFilterSite===c.id?" active":"")+'" data-f="'+c.id+'" style="min-width:auto;"><b>'+esc(c.label)+"</b></div>";
+    }).join("") + '<div class="chip'+(state.logFilterMine?" active":"")+'" data-f="mine" style="min-width:auto;"><b>Just me</b></div>';
+    el.querySelectorAll(".chip").forEach(function(c){
+      c.addEventListener("click", function(){
+        var f = c.getAttribute("data-f");
+        if(f==="mine") state.logFilterMine = !state.logFilterMine; else state.logFilterSite = f;
+        renderLogFilters(); renderLog();
+      });
+    });
+  }
+
+  function summaryLine(entry){
+    var d = entry.data || {};
+    switch(entry.catId){
+      case "count": return d.zone+" — tally "+d.tally+", density "+d.density+"/5, "+d.flow;
+      case "flow": return d.location+" — "+d.cause+", severity "+d.severity+"/5";
+      case "lang": return d.location+" — "+(d.languages||[]).join(", ")+" ("+d.format+", quality "+d.quality+"/5)";
+      case "rest": return d.type+(d.distance?" — "+d.distance:"");
+      case "food": return d.name+" ("+d.category+(d.price?", "+d.price:"")+")";
+      case "biz": return d.business+" — interviewed: "+(d.interviewed||"?");
+      case "visitor": return d.origin+" — "+(d.groupType||"")+", satisfaction "+(d.satisfaction||"?")+"/5";
+      case "photo": return d.caption;
+      case "spot": return d.spotLabel+" — held "+fmtDur(d.durationSec||0)+", peak "+(d.peakCount||1);
+      default: return "";
+    }
+  }
+
+  function renderLog(){
+    if(state.tab!=="log") return;
+    var list = Array.from(state.entries.values());
+    if(state.logFilterSite!=="all") list = list.filter(function(e){return e.site===state.logFilterSite;});
+    if(state.logFilterMine) list = list.filter(function(e){return e.author===state.identity;});
+    list.sort(function(a,b){ return new Date(b.ts) - new Date(a.ts); });
+    var el = document.getElementById("logList");
+    if(list.length===0){ el.innerHTML = '<p class="muted">No entries yet — log something from the Survey tab.</p>'; return; }
+    el.innerHTML = list.map(function(e){
+      var cat = catInfo(e.catId);
+      var photo = e.localPhoto ? '<img class="thumb" src="'+e.localPhoto+'">' : "";
+      return '<div class="entry"><div class="entry-top"><div class="entry-tags"><span class="entry-cat" style="background:'+cat.color+'">'+esc(cat.label)+'</span><span class="muted" style="font-size:12px;">'+esc(siteName(e.site))+'</span></div><span class="entry-time">'+fmtTime(e.ts)+"</span></div>"+
+        '<div class="entry-summary">'+esc(summaryLine(e))+"</div>"+
+        '<div class="entry-meta">'+esc(e.author)+"</div>"+photo+"</div>";
+    }).join("");
+  }
+
+  function toCSV(rows){
+    var esc2 = function(v){ v = v==null?"":String(v); return '"'+v.replace(/"/g,'""')+'"'; };
+    var lines = [["timestamp","site","category","author","summary"].join(",")];
+    rows.forEach(function(e){ lines.push([e.ts, siteName(e.site), catInfo(e.catId).label, e.author, summaryLine(e)].map(esc2).join(",")); });
+    return lines.join("\r\n");
+  }
+
+  function downloadFile(filename, text, mime){
+    var blob = new Blob([text], {type: mime || "application/octet-stream"});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+    toast("Saved "+filename);
+  }
+
+  document.getElementById("exportJson").addEventListener("click", function(){
+    downloadFile("dhde-fieldwork-"+(state.identity||"log").replace(/\s+/g,"_")+".json", JSON.stringify(Array.from(state.entries.values()), null, 2), "application/json");
+  });
+  document.getElementById("exportCsv").addEventListener("click", function(){
+    downloadFile("dhde-fieldwork-"+(state.identity||"log").replace(/\s+/g,"_")+".csv", toCSV(Array.from(state.entries.values())), "text/csv");
+  });
+  document.getElementById("exportSummary").addEventListener("click", function(){
+    downloadFile("dhde-fieldwork-summary.csv", toCSV(Array.from(state.entries.values())), "text/csv");
+  });
+  document.getElementById("importBtn").addEventListener("click", function(){
+    var raw = document.getElementById("importBox").value.trim(); if(!raw) return;
+    try{
+      var arr = JSON.parse(raw); var n = 0;
+      arr.forEach(function(e){ if(e && e.id && !state.entries.has(e.id)){ state.entries.set(e.id, e); n++; } });
+      persistLocal(); document.getElementById("importBox").value = "";
+      toast("Merged "+n+" new entries"); renderLog(); renderDash();
+    }catch(e){ toast("Couldn't read that JSON"); }
+  });
+
+  /* ---------------- dashboard tab ---------------- */
+  function renderDash(){
+    if(state.tab!=="dash") return;
+    var all = Array.from(state.entries.values());
+    var kpis = [
+      {v: all.length, l:"Total entries"},
+      {v: new Set(all.map(function(e){return e.author;})).size, l:"Contributors"},
+      {v: all.filter(function(e){return e.catId==="food";}).length, l:"Cafes / venues"}
+    ];
+    document.getElementById("kpiGrid").innerHTML = kpis.map(function(k){ return '<div class="kpi"><div class="v">'+k.v+'</div><div class="l">'+esc(k.l)+"</div></div>"; }).join("");
+
+    var maxCount = 1;
+    var counts = CAT_ORDER.map(function(id){ var n = all.filter(function(e){return e.catId===id;}).length; maxCount = Math.max(maxCount,n); return {id:id,n:n}; });
+    document.getElementById("catBars").innerHTML = counts.map(function(c){
+      var cat = CATEGORIES[c.id]; var pct = Math.round((c.n/maxCount)*100);
+      return '<div class="bar-row"><div class="lbl">'+esc(cat.label)+'</div><div class="bar-track"><div class="bar-fill" style="width:'+pct+'%; background:'+cat.color+'"></div></div><div class="n">'+c.n+"</div></div>";
+    }).join("");
+
+    var now = new Date(); var flags = [];
+    SITES.forEach(function(s){
+      var endHH = s.window.split("–")[1] || "";
+      var passed = false; var m = endHH.match(/(\d{1,2}):(\d{2})/);
+      if(m){ var end = new Date(); end.setHours(Number(m[1]), Number(m[2]), 0, 0); passed = now > end; }
+      var siteEntries = all.filter(function(e){return e.site===s.id;});
+      CAT_ORDER.forEach(function(cid){
+        var has = siteEntries.some(function(e){return e.catId===cid;});
+        if(!has && (passed || siteEntries.length>0)) flags.push(s.name+" — no "+CATEGORIES[cid].label.toLowerCase()+" logged yet");
+      });
+    });
+    var gapEl = document.getElementById("gapFlags");
+    gapEl.innerHTML = flags.length===0 ? '<p class="muted" style="margin-top:10px;">No coverage gaps flagged yet.</p>' :
+      '<div style="margin-top:6px;">'+flags.slice(0,8).map(function(f){ return '<div class="gap-flag"><span class="dot"></span><span class="muted">'+esc(f)+"</span></div>"; }).join("")+"</div>";
+
+    var byPerson = {};
+    all.forEach(function(e){ byPerson[e.author] = (byPerson[e.author]||0) + 1; });
+    var people = Object.keys(byPerson).sort(function(a,b){ return byPerson[b]-byPerson[a]; });
+    document.getElementById("personList").innerHTML = people.length===0 ? '<p class="muted">No entries yet.</p>' :
+      people.map(function(p){ return '<div class="person-row"><span>'+esc(p)+'</span><span class="num">'+byPerson[p]+"</span></div>"; }).join("");
+  }
+
+  /* ---------------- boot ---------------- */
+  loadLocal();
+  renderRoster(); renderSchedule(); renderSiteChips(); renderCatChips(); renderForm(); renderLogFilters();
+  if(state.identity){
+    document.getElementById("gate").style.display = "none";
+    document.getElementById("identityName").textContent = state.identity;
+    document.getElementById("avatarInit").textContent = initials(state.identity).toUpperCase();
+  }
+  if("serviceWorker" in navigator){
+    window.addEventListener("load", function(){ navigator.serviceWorker.register("sw.js").catch(function(){}); });
+  }
+})();
+</script>
+</body>
+</html>

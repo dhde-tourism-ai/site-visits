@@ -44,7 +44,7 @@
   img{max-width:100%;}
   [hidden]{display:none !important;}
   .num{font-family:var(--font-mono); font-variant-numeric:tabular-nums;}
-  .ja{font-family:var(--font-jp); color:var(--ink-soft); font-size:12.5px; display:block; margin-top:2px;}
+  .ja{font-family:var(--font-jp); color:var(--ink-soft); font-size:15.5px; line-height:1.4; display:block; margin-top:3px;}
   a{color:inherit;}
   button{font-family:inherit;}
   ::selection{background:var(--accent); color:var(--accent-ink);}
@@ -201,6 +201,10 @@
   .spot-badge.occ{background:rgba(158,43,37,.9);}
   .cam-sessions{max-height:70px; overflow-y:auto; font-family:var(--font-mono); font-size:11px; color:#cfd6ea;}
   .cam-hint{color:#cfd6ea; font-size:12px; text-align:center;}
+  .tally-readout{text-align:center; color:#fff;}
+  .tally-count{font-family:var(--font-mono); font-size:44px; font-weight:700; line-height:1;}
+  .tally-meta{font-size:12px; color:#cfd6ea; margin-top:4px;}
+  .tally-tap{padding:22px 0; font-size:17px; background:var(--accent);}
 </style>
 </head>
 <body>
@@ -441,7 +445,7 @@
   /* ---------------- category definitions ---------------- */
   var CATEGORIES = {
     count:{label:"Crowd Count", color:"var(--cat-count)", blurb:"Quantify how packed each pinch point is, at fixed intervals, from a fixed vantage point.",
-      how:["Stand at a clear vantage point across the pinch point (corner, bridge, doorway).","Tally everyone crossing an imaginary line for 60 seconds; repeat at the start and end of your 15-minute block.","Or use Camera assist below to have your phone count crossings automatically — check it against a manual tally now and then.","Rate ambient density 1–5: 1 free walking pace, 3 shoulder-to-shoulder in patches, 5 shuffling, can't deviate.","Note the dominant flow direction and whether it's one-way, two-way, or crossing."],
+      how:["Stand at a clear vantage point across the pinch point (corner, bridge, doorway).","Tally everyone crossing an imaginary line for 60 seconds; repeat at the start and end of your 15-minute block.","Or use Manual tally below — point your phone at the crossing line for reference and tap once per person; it also times the gap between each person for you.","Rate ambient density 1–5: 1 free walking pace, 3 shoulder-to-shoulder in patches, 5 shuffling, can't deviate.","Note the dominant flow direction and whether it's one-way, two-way, or crossing."],
       fields:[
         {id:"zone", label:"Zone / landmark", type:"text", req:true, ph:"e.g. Ebisu-bashi bridge, north side"},
         {id:"tally", label:"60-second tally (headcount)", type:"number", req:true, cam:"flow"},
@@ -456,7 +460,8 @@
         {id:"cause", label:"Cause", type:"select", req:true, options:["Physical narrowing","Obstruction / vendor","Flow merge","Confusing decision point (signage/exits)","Queue spillover","Other"]},
         {id:"severity", label:"Severity — 1 minor → 5 severe", type:"scale5", req:true},
         {id:"spillover", label:"Spills into road / private property?", type:"yesno"},
-        {id:"fix", label:"Suggested fix", type:"textarea"}
+        {id:"fix", label:"Suggested fix", type:"textarea"},
+        {id:"photo", label:"Photo (optional)", type:"photo"}
       ]},
     lang:{label:"Multilingual Signage", color:"var(--cat-lang)", blurb:"Audit official signage against the visitor languages you actually see on the ground.",
       how:["Check every major decision point: station exits, intersections, ticket gates, restrooms, map boards.","Record which languages are present, the format, and whether a QR code actually resolves to a translated page — test one.","Rate quality 1–5: 1 = Japanese-only, 5 = full JP/EN/Chinese/Korean + pictograms/QR."],
@@ -466,7 +471,8 @@
         {id:"format", label:"Format", type:"select", req:true, options:["Fixed sign","Digital board","QR code","Staff only","None"]},
         {id:"qr", label:"QR tested and works?", type:"select", options:["N/A","Yes","No"]},
         {id:"quality", label:"Quality — 1 poor → 5 excellent", type:"scale5", req:true},
-        {id:"gap", label:"What's missing, and for whom?", type:"textarea"}
+        {id:"gap", label:"What's missing, and for whom?", type:"textarea"},
+        {id:"photo", label:"Photo (optional)", type:"photo"}
       ]},
     rest:{label:"Prayer & Rest Spaces", color:"var(--cat-rest)", blurb:"Map both dedicated prayer/quiet rooms and ordinary rest infrastructure — benches, shade, water, accessible restrooms.",
       how:["Ask staff or check posted maps for a designated prayer room, multi-faith room, or quiet room.","Separately log ordinary rest infrastructure — gaps here affect elderly and family visitors as much as prayer needs.","Note distance from the main visitor flow and whether it's signed from the street."],
@@ -474,7 +480,8 @@
         {id:"type", label:"Type found", type:"select", req:true, options:["Dedicated prayer/quiet room","Bench cluster / rest area","Shaded seating","Accessible restroom","None found nearby"]},
         {id:"distance", label:"Distance from main path", type:"text", ph:"e.g. ~80m, 2 floors up"},
         {id:"signed", label:"Signed from the street?", type:"yesno"},
-        {id:"notes", label:"Accessibility notes", type:"textarea"}
+        {id:"notes", label:"Accessibility notes", type:"textarea"},
+        {id:"photo", label:"Photo (optional)", type:"photo"}
       ]},
     food:{label:"Food & Beverage Census", color:"var(--cat-food)", blurb:"Walk a fixed stretch and log every food/beverage business in order — this gives both a density count and a service-gap map.",
       how:["Pick a fixed stretch (e.g. one side of a named street for ~150m) and log every business in order, not just landmarks.","Record category, price tier from the menu board, and an actual headcount of the queue — don't estimate.","Note whether the menu is available in other languages and whether halal/vegetarian/allergen info is visible."],
@@ -486,7 +493,8 @@
         {id:"seating", label:"Seating estimate", type:"number"},
         {id:"multilingualMenu", label:"Menu in other languages?", type:"yesno"},
         {id:"dietary", label:"Halal/veg/allergen info visible?", type:"yesno"},
-        {id:"notes", label:"Notes", type:"textarea"}
+        {id:"notes", label:"Notes", type:"textarea"},
+        {id:"photo", label:"Photo (optional)", type:"photo"}
       ]},
     photo:{label:"Photo Log", color:"var(--cat-photo)", blurb:"One photo per issue, taken to show evidence — not a scenic shot.",
       how:["Take one photo per pinch point or gap you've logged, from the vantage point that best shows the issue.","Caption it with exactly what it's evidence of.","Avoid close-up identifiable faces where you can help it — this is fieldwork documentation, not tourism photography."],
@@ -512,24 +520,24 @@
     {id:"tourist", en:"Tourist / Visitor", ja:"観光客"}
   ];
   var SURVEY_INTRO = {
-    business:[{id:"bizName", label:"Business name", ja:"店舗名", type:"text", req:true},{id:"bizType", label:"Business type", ja:"業種", type:"text"}],
+    business:[{id:"bizName", label:"Business name", ja:"店舗名", type:"text", req:true},{id:"bizType", label:"Business type", ja:"業種", type:"text"},{id:"photo", label:"Photo of the business (optional)", type:"photo"}],
     staff:[{id:"orgName", label:"Role / organization", ja:"役職・所属", type:"text"}],
     tourist:[{id:"origin", label:"Country / region of origin", ja:"出身国・地域", type:"text", req:true},{id:"language", label:"Language most comfortable in", ja:"話しやすい言語", type:"text"},{id:"groupType", label:"Group type", ja:"グループの種類", type:"select", options:["Solo","Couple","Family","Friends","Tour group"]}]
   };
   var SURVEY_QUESTIONS = {
     business:[
       {id:"q1_traffic", en:"About how many customers do you get on a typical day?", ja:"一日に大体何人のお客様が来られますか?", type:"single", options:[
-        {en:"Fewer than 20", ja:"20人未満"},{en:"20–50", ja:"20〜50人"},{en:"50–100", ja:"50〜100人"},{en:"100–300", ja:"100〜300人"},{en:"More than 300", ja:"300人以上"}]},
+        {en:"Fewer than 20", ja:"20人未満"},{en:"20–50", ja:"20〜50人"},{en:"50–100", ja:"50〜100人"},{en:"100–300", ja:"100〜300人"},{en:"More than 300", ja:"300人以上"},{en:"Cannot answer", ja:"回答できません"}]},
       {id:"q2_touristshare", en:"Roughly what share of your customers are visitors from outside Japan?", ja:"お客様のうち、海外からの観光客はどのくらいの割合ですか?", type:"single", options:[
-        {en:"Almost none (0–10%)", ja:"ほとんどいない(0〜10%)"},{en:"A few (10–30%)", ja:"少し(10〜30%)"},{en:"About half (30–50%)", ja:"約半分(30〜50%)"},{en:"Most (50–80%)", ja:"多い(50〜80%)"},{en:"Nearly all (80–100%)", ja:"ほとんど(80〜100%)"}]},
+        {en:"Almost none (0–10%)", ja:"ほとんどいない(0〜10%)"},{en:"A few (10–30%)", ja:"少し(10〜30%)"},{en:"About half (30–50%)", ja:"約半分(30〜50%)"},{en:"Most (50–80%)", ja:"多い(50〜80%)"},{en:"Nearly all (80–100%)", ja:"ほとんど(80〜100%)"},{en:"Cannot answer", ja:"回答できません"}]},
       {id:"q3_busiest", en:"When is it busiest for you?", ja:"一番忙しい時間帯はいつですか?", type:"single", options:[
-        {en:"Morning (before 11am)", ja:"午前(11時前)"},{en:"Midday (11am–2pm)", ja:"昼(11時〜14時)"},{en:"Afternoon (2–5pm)", ja:"午後(14時〜17時)"},{en:"Evening (after 5pm)", ja:"夕方以降(17時以降)"},{en:"Weekends busier than weekdays", ja:"平日より週末が忙しい"}]},
+        {en:"Morning (before 11am)", ja:"午前(11時前)"},{en:"Midday (11am–2pm)", ja:"昼(11時〜14時)"},{en:"Afternoon (2–5pm)", ja:"午後(14時〜17時)"},{en:"Evening (after 5pm)", ja:"夕方以降(17時以降)"},{en:"Weekends busier than weekdays", ja:"平日より週末が忙しい"},{en:"Cannot answer", ja:"回答できません"}]},
       {id:"q4_language", en:"What language support do you offer non-Japanese-speaking customers?", ja:"日本語が話せないお客様への言語サポートはありますか?", type:"multi", options:[
-        {en:"Menu/signage in other languages", ja:"他言語のメニュー・表示"},{en:"Staff who speak other languages", ja:"他言語を話せるスタッフ"},{en:"Translation app or device", ja:"翻訳アプリ・機器"},{en:"QR code", ja:"QRコード"},{en:"None currently", ja:"特にない"}]},
+        {en:"Menu/signage in other languages", ja:"他言語のメニュー・表示"},{en:"Staff who speak other languages", ja:"他言語を話せるスタッフ"},{en:"Translation app or device", ja:"翻訳アプリ・機器"},{en:"QR code", ja:"QRコード"},{en:"None currently", ja:"特にない"},{en:"Cannot answer", ja:"回答できません"}]},
       {id:"q5_payment", en:"What payment methods do you accept?", ja:"どの支払い方法に対応していますか?", type:"multi", options:[
-        {en:"Cash only", ja:"現金のみ"},{en:"IC card (Suica/ICOCA)", ja:"ICカード(Suica・ICOCA)"},{en:"Credit card", ja:"クレジットカード"},{en:"QR payment (PayPay etc.)", ja:"QR決済(PayPayなど)"},{en:"Alipay / WeChat Pay", ja:"Alipay・WeChat Pay"}]},
+        {en:"Cash only", ja:"現金のみ"},{en:"IC card (Suica/ICOCA)", ja:"ICカード(Suica・ICOCA)"},{en:"Credit card", ja:"クレジットカード"},{en:"QR payment (PayPay etc.)", ja:"QR決済(PayPayなど)"},{en:"Alipay / WeChat Pay", ja:"Alipay・WeChat Pay"},{en:"Cannot answer", ja:"回答できません"}]},
       {id:"q6_trend", en:"How has the number of foreign tourists changed over the last year?", ja:"この一年で外国人観光客の数はどう変化しましたか?", type:"single", options:[
-        {en:"Increased a lot", ja:"大きく増えた"},{en:"Increased a little", ja:"少し増えた"},{en:"About the same", ja:"変わらない"},{en:"Decreased a little", ja:"少し減った"},{en:"Decreased a lot", ja:"大きく減った"},{en:"Not sure", ja:"わからない"}]},
+        {en:"Increased a lot", ja:"大きく増えた"},{en:"Increased a little", ja:"少し増えた"},{en:"About the same", ja:"変わらない"},{en:"Decreased a little", ja:"少し減った"},{en:"Decreased a lot", ja:"大きく減った"},{en:"Not sure / cannot answer", ja:"わからない・回答できません"}]},
       {id:"q7_painpoint", en:"What is the single biggest challenge you face with tourist customers right now?", ja:"現在、観光客のお客様に関して一番困っていることは何ですか?", type:"open"}
     ],
     staff:[
@@ -557,6 +565,12 @@
 
   function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,9); }
   function initials(name){ var p = name.trim().split(/\s+/); return ((p[0]||"")[0]||"") + ((p[1]||"")[0]||""); }
+  function slug(s){ return String(s==null?"":s).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,30) || "x"; }
+  function makeEntryId(day, site, catId, author){
+    var now = new Date();
+    var stamp = now.toISOString().replace(/[-:]/g,"").replace(/\.\d+Z$/,"Z").replace("T","-").replace("Z","");
+    return slug(day)+"_"+slug(site)+"_"+slug(catId)+"_"+slug(author)+"_"+stamp+"_"+uid().slice(-5);
+  }
   function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g, function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
   function fmtTime(iso){ try{ return new Date(iso).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}); }catch(e){ return ""; } }
   function catInfo(id){ return CATEGORIES[id] || {label:id, color:"var(--ink-soft)"}; }
@@ -607,6 +621,21 @@
           persistLocal();
           renderLog(); renderDash();
         }, function(){ state.cloudOn = false; updateCloudUI(); });
+      db.collection("photos").where("teamCode","==",TEAM_CODE).limit(1000)
+        .onSnapshot(function(snap){
+          var changed = false;
+          snap.docChanges().forEach(function(change){
+            if(change.type==="removed") return;
+            var p = change.doc.data();
+            var existing = state.entries.get(p.entryId);
+            if(existing && !existing.localPhoto && p.dataUrl){
+              existing.localPhoto = p.dataUrl;
+              state.entries.set(p.entryId, existing);
+              changed = true;
+            }
+          });
+          if(changed){ persistLocal(); renderLog(); renderDash(); }
+        }, function(){});
     }catch(e){
       db = null; state.cloudOn = false; updateCloudUI();
     }
@@ -614,9 +643,18 @@
 
   function pushToCloud(entry){
     if(!db) return;
-    var slim = Object.assign({}, entry, {teamCode: TEAM_CODE});
+    var slim = Object.assign({}, entry, {teamCode: TEAM_CODE, siteName: siteName(entry.site), dayLabel: dayLabel(entry.day)});
     delete slim.localPhoto; delete slim.audioNote;
     db.collection("entries").doc(entry.id).set(slim).catch(function(){ /* stays queued locally by Firestore, or safe in localStorage either way */ });
+    if(entry.localPhoto) pushPhotoToCloud(entry);
+  }
+
+  function pushPhotoToCloud(entry){
+    if(!db || !entry.localPhoto) return;
+    db.collection("photos").doc(entry.id).set({
+      entryId: entry.id, day: entry.day, dayLabel: dayLabel(entry.day), site: entry.site, siteName: siteName(entry.site),
+      catId: entry.catId, author: entry.author, ts: entry.ts, teamCode: TEAM_CODE, dataUrl: entry.localPhoto
+    }).catch(function(){ /* photo stays local + travels via export if this one's too large or offline */ });
   }
 
   /* ---------------- identity gate ---------------- */
@@ -697,7 +735,7 @@
   function fieldHtml(f){
     var reqMark = f.req ? ' <span class="req">*</span>' : "";
     var id = "f_"+f.id;
-    var camBtn = f.cam ? ' <button type="button" class="btn secondary" data-camfor="'+id+'" data-cammode="'+f.cam+'" style="margin-left:6px; padding:6px 10px; font-size:11.5px;">Camera assist</button>' : "";
+    var camBtn = f.cam ? ' <button type="button" class="btn secondary" data-camfor="'+id+'" data-cammode="'+f.cam+'" style="margin-left:6px; padding:6px 10px; font-size:11.5px;">Manual tally</button>' : "";
     if(f.type==="text") return '<div class="field"><label for="'+id+'">'+esc(f.label)+reqMark+(f.ja?'<span class="ja">'+esc(f.ja)+'</span>':'')+'</label><input type="text" id="'+id+'" placeholder="'+esc(f.ph||"")+'"></div>';
     if(f.type==="number") return '<div class="field"><label for="'+id+'">'+esc(f.label)+reqMark+camBtn+'</label><input type="number" inputmode="numeric" id="'+id+'"></div>';
     if(f.type==="textarea") return '<div class="field"><label for="'+id+'">'+esc(f.label)+reqMark+'</label><textarea id="'+id+'" placeholder="'+esc(f.ph||"")+'"></textarea></div>';
@@ -828,6 +866,10 @@
         openFlowCamera(function(result){
           var target = document.getElementById(camBtn.getAttribute("data-camfor"));
           if(target){ target.value = result.crossings; }
+          var notesEl = document.getElementById("f_notes");
+          if(notesEl && !notesEl.value.trim() && result.avgGapSec){
+            notesEl.value = "Manual tally: "+result.crossings+" people in "+result.durationSec+"s (avg gap "+result.avgGapSec+"s/person).";
+          }
           toast("Filled tally: "+result.crossings+" in "+result.durationSec+"s");
         });
       });
@@ -857,7 +899,7 @@
   }
 
   function saveNewEntry(catId, payload, photoField, root, extra){
-    var entry = Object.assign({ id: uid(), catId: catId, site: state.site, day: state.day, author: state.identity, ts: new Date().toISOString(), data: payload }, extra||{});
+    var entry = Object.assign({ id: makeEntryId(state.day, state.site, catId, state.identity), catId: catId, site: state.site, day: state.day, author: state.identity, ts: new Date().toISOString(), data: payload }, extra||{});
     function finish(){
       state.entries.set(entry.id, entry); state.sinceExport++; persistLocal();
       toast(state.cloudOn ? "Saved — syncing live" : "Saved to this device"); renderForm(); renderLog(); renderDash();
@@ -921,6 +963,18 @@
       wirePlainFields(branch);
       wireMcQuestions(branch, qs);
       wireVoiceNote(branch, "surveyVoice");
+      var photoField = intro.filter(function(f){return f.type==="photo";})[0];
+      if(photoField){
+        var pinp = branch.querySelector("#f_"+photoField.id);
+        pinp.addEventListener("change", function(){
+          var file = pinp.files[0]; if(!file) return;
+          var prev = branch.querySelector("#f_"+photoField.id+"_prev");
+          var reader = new FileReader();
+          reader.onload = function(ev){ prev.src = ev.target.result; prev.style.display="block"; };
+          reader.readAsDataURL(file);
+          pinp._file = file;
+        });
+      }
       branch.querySelector("#surveyForm").addEventListener("submit", function(e){
         e.preventDefault();
         submitSurvey(type, intro, qs, branch);
@@ -975,7 +1029,16 @@
     if(missing){ toast("Fill in the required fields first"); return; }
     var voiceWrap = root.querySelector("#surveyVoice");
     var extra = voiceWrap && voiceWrap._dataUrl ? {audioNote: voiceWrap._dataUrl} : {};
-    saveNewEntry("survey", payload, null, null, extra);
+    var photoField = intro.filter(function(f){return f.type==="photo";})[0];
+    var photoInput = photoField ? root.querySelector("#f_"+photoField.id) : null;
+    if(photoInput && photoInput._file){
+      downscaleToDataUrl(photoInput._file, function(durl){
+        extra.localPhoto = durl;
+        saveNewEntry("survey", payload, null, null, extra);
+      });
+    } else {
+      saveNewEntry("survey", payload, null, null, extra);
+    }
   }
 
   /* ---------------- computer vision ---------------- */
@@ -1027,40 +1090,38 @@
   }
 
   function openFlowCamera(onResult){
+    // Manual tap-and-lap counter. Earlier versions tried to auto-count via
+    // on-device object detection, but that wasn't reliable in real crowds —
+    // a human tapping once per person is simpler and just correct. The
+    // camera + line stay only as a visual reference for where to point.
     var overlay = buildOverlay();
     var video = overlay.querySelector("#camVideo"), canvas = overlay.querySelector("#camCanvas"),
         stage = overlay.querySelector("#camStage"), statusEl = overlay.querySelector("#camStatus"),
         bottom = overlay.querySelector("#camBottom"), ctx = canvas.getContext("2d");
-    var closed = false, running = false, timer = null, intervalId = null, elapsed = 0;
-    var lineY = null, tracks = [], crossings = 0;
+    var closed = false, lineY = null;
+    var laps = [], startTs = null, uiTimer = null;
 
-    bottom.innerHTML = '<p class="cam-hint">Drag the yellow line across the path people walk through. Tap Start when ready.</p>'+
-      '<button id="camStart" class="btn block">Start 60s count</button>';
+    statusEl.textContent = "Starting camera…";
+    bottom.innerHTML =
+      '<div class="tally-readout"><div class="tally-count" id="tallyCount">0</div><div class="tally-meta" id="tallyMeta">Tap once per person crossing the line</div></div>'+
+      '<button id="tapBtn" class="btn block tally-tap">TAP — person crossed</button>'+
+      '<div class="row2"><button id="undoTap" class="btn ghost">Undo last</button><button id="finishTally" class="btn ghost">Finish</button></div>'+
+      '<div class="cam-sessions" id="lapList"></div>';
 
-    function resize(){ positionCanvas(video, canvas, stage); if(lineY===null) lineY = video.videoHeight/2; draw([]); }
-    startStream(video, statusEl, function(){ statusEl.textContent="Position the line, then start"; resize(); });
+    function resize(){ positionCanvas(video, canvas, stage); if(lineY===null) lineY = video.videoHeight/2; draw(); }
+    startStream(video, statusEl, function(){ statusEl.textContent="Drag the line for reference, then tap for each person"; resize(); });
     window.addEventListener("resize", resize);
 
     function videoToCanvasY(y){ return canvas.height ? y*(canvas.height/video.videoHeight) : y; }
     function canvasToVideoY(y){ return video.videoHeight ? y*(video.videoHeight/canvas.height) : y; }
-    function sx(){ return canvas.width / (video.videoWidth||1); }
 
-    function draw(persons){
+    function draw(){
       ctx.clearRect(0,0,canvas.width,canvas.height);
       if(lineY!==null){
         var cy = videoToCanvasY(lineY);
         ctx.strokeStyle = "#ffd23f"; ctx.lineWidth = 3; ctx.setLineDash([10,6]);
         ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(canvas.width, cy); ctx.stroke(); ctx.setLineDash([]);
       }
-      var s = sx();
-      persons.forEach(function(p){
-        var b = p.bbox;
-        ctx.strokeStyle = "#4FAE7C"; ctx.lineWidth = 2;
-        ctx.strokeRect(b[0]*s, b[1]*s, b[2]*s, b[3]*s);
-      });
-      var badge = overlay.querySelector(".cam-counter");
-      if(!badge){ badge = document.createElement("div"); badge.className="cam-counter"; stage.appendChild(badge); }
-      badge.innerHTML = crossings + '<span class="u">crossings · '+elapsed+'s</span>';
     }
 
     var dragging = false;
@@ -1073,70 +1134,65 @@
       if(!dragging) return; e.preventDefault();
       var t = e.touches[0], r = canvas.getBoundingClientRect();
       lineY = canvasToVideoY(Math.max(0, Math.min(canvas.height, t.clientY - r.top)));
-      draw([]);
+      draw();
     }, {passive:false});
     canvas.addEventListener("touchend", function(){ dragging = false; });
 
-    function tick(){
-      if(!running || closed) return;
-      CV.model.detect(video).then(function(preds){
-        if(closed) return;
-        var persons = preds.filter(function(p){ return p.class==="person" && p.score>0.5; });
-        var centroids = persons.map(function(p){ var b=p.bbox; return {x:b[0]+b[2]/2, y:b[1]+b[3]/2}; });
-        var used = new Array(tracks.length).fill(false);
-        centroids.forEach(function(c){
-          var best=-1, bestDist=Infinity;
-          tracks.forEach(function(tr,i){
-            if(used[i]) return;
-            var d = Math.hypot(tr.x-c.x, tr.y-c.y);
-            if(d<bestDist){ bestDist=d; best=i; }
-          });
-          var maxDist = (video.videoWidth||640)*0.18;
-          var side = c.y < lineY ? "A" : "B";
-          if(best>=0 && bestDist<maxDist){
-            var tr = tracks[best];
-            if(tr.side && tr.side!==side && (Date.now()-tr.lastCross>900)){
-              crossings++; tr.lastCross = Date.now();
-            }
-            tr.side = side; tr.x=c.x; tr.y=c.y; tr.lastSeen=Date.now(); used[best]=true;
-          } else {
-            tracks.push({x:c.x,y:c.y,side:side,lastSeen:Date.now(),lastCross:0});
-          }
-        });
-        tracks = tracks.filter(function(t){ return Date.now()-t.lastSeen < 1400; });
-        draw(persons);
-      }).catch(function(){});
+    function renderLapList(){
+      var el = document.getElementById("lapList");
+      var recent = laps.slice(-8);
+      var startIdx = laps.length - recent.length;
+      var rows = recent.map(function(t, i){
+        var globalIdx = startIdx + i + 1;
+        var gapText = globalIdx===1 ? "start" : "+"+((t - laps[startIdx+i-1])/1000).toFixed(1)+"s";
+        return globalIdx+". "+fmtTime(new Date(t).toISOString())+" ("+gapText+")";
+      });
+      el.innerHTML = rows.slice().reverse().join("<br>");
+    }
+    function updateReadout(){
+      document.getElementById("tallyCount").textContent = laps.length;
+      var meta = document.getElementById("tallyMeta");
+      if(laps.length===0){ meta.textContent = "Tap once per person crossing the line"; }
+      else {
+        var elapsedSec = Math.round((Date.now()-startTs)/1000);
+        var lastGap = laps.length>1 ? ((laps[laps.length-1]-laps[laps.length-2])/1000).toFixed(1)+"s" : "—";
+        meta.textContent = elapsedSec+"s elapsed · last gap "+lastGap;
+      }
+      renderLapList();
     }
 
-    overlay.querySelector("#camStart").addEventListener("click", function(){
-      if(running) return;
-      statusEl.textContent = "Loading model…";
-      CV.load(function(msg){ statusEl.textContent = msg; }).then(function(){
-        running = true; elapsed = 0; crossings = 0; tracks = [];
-        statusEl.textContent = "Counting…";
-        overlay.querySelector("#camStart").textContent = "Stop now";
-        overlay.querySelector("#camStart").onclick = finishCounting;
-        timer = setInterval(function(){ elapsed++; draw([]); if(elapsed>=60) finishCounting(); }, 1000);
-        intervalId = setInterval(tick, 350);
-      }).catch(function(){ statusEl.textContent = "Couldn't load the model — check your connection."; });
+    overlay.querySelector("#tapBtn").addEventListener("click", function(){
+      var now = Date.now();
+      if(startTs===null) startTs = now;
+      laps.push(now);
+      updateReadout();
     });
+    overlay.querySelector("#undoTap").addEventListener("click", function(){
+      if(laps.length===0) return;
+      laps.pop();
+      if(laps.length===0) startTs = null;
+      updateReadout();
+    });
+    overlay.querySelector("#finishTally").addEventListener("click", finishTally);
+    uiTimer = setInterval(function(){ if(startTs!==null) updateReadout(); }, 1000);
 
-    function finishCounting(){
-      if(!running) return;
-      running = false;
-      clearInterval(timer); clearInterval(intervalId);
-      statusEl.textContent = "Done";
-      bottom.innerHTML = '<p class="cam-hint">'+crossings+' crossings in '+elapsed+'s.</p>'+
+    function finishTally(){
+      clearInterval(uiTimer);
+      var durationSec = startTs ? Math.max(1, Math.round((Date.now()-startTs)/1000)) : 0;
+      var count = laps.length;
+      var avgGap = count>1 ? ((laps[laps.length-1]-laps[0])/1000/(count-1)).toFixed(1) : null;
+      bottom.innerHTML = '<p class="cam-hint">'+count+' people in '+durationSec+'s'+(avgGap? " (avg gap "+avgGap+"s/person)":"")+'.</p>'+
         '<button id="useCount" class="btn block">Use this number</button>'+
         '<button id="discardCount" class="btn ghost block">Discard</button>';
       overlay.querySelector("#useCount").addEventListener("click", function(){
-        closeOverlay(); onResult({crossings:crossings, durationSec:elapsed});
+        closeOverlay();
+        onResult({crossings: count, durationSec: durationSec, avgGapSec: avgGap});
       });
       overlay.querySelector("#discardCount").addEventListener("click", closeOverlay);
     }
     function closeOverlay(){
-      closed = true; running = false;
-      clearInterval(timer); clearInterval(intervalId);
+      closed = true;
+      clearInterval(uiTimer);
       window.removeEventListener("resize", resize);
       stopStream(video); overlay.remove();
     }
@@ -1217,7 +1273,7 @@
     function finalizeSession(){
       var durSec = Math.round((Date.now()-occ.since)/1000);
       if(durSec < 2) return;
-      var entry = { id: uid(), catId:"spot", site: state.site, day: state.day, author: state.identity,
+      var entry = { id: makeEntryId(state.day, state.site, "spot", state.identity), catId:"spot", site: state.site, day: state.day, author: state.identity,
         ts: new Date(occ.since).toISOString(), data:{ spotLabel: label, durationSec: durSec, peakCount: occ.peak } };
       state.entries.set(entry.id, entry); state.sinceExport++; persistLocal();
       pushToCloud(entry);
@@ -1321,6 +1377,12 @@
     }
   }
 
+  function photoFilename(entry){
+    var d = entry.data || {};
+    var label = d.name || d.location || d.zone || d.caption || d.spotLabel || d.bizName || d.orgName || entry.catId;
+    return "dhde_"+slug(entry.day)+"_"+slug(entry.site)+"_"+slug(label)+".jpg";
+  }
+
   function renderLog(){
     if(state.tab!=="log") return;
     renderLogFilters();
@@ -1333,7 +1395,7 @@
     if(list.length===0){ el.innerHTML = '<p class="muted">No entries yet — log something from the Survey tab.</p>'; return; }
     el.innerHTML = list.map(function(e){
       var cat = catInfo(e.catId);
-      var photo = e.localPhoto ? '<img class="thumb" src="'+e.localPhoto+'">' : "";
+      var photo = e.localPhoto ? '<img class="thumb" src="'+e.localPhoto+'"><div><a class="btn ghost" style="display:inline-block; margin-top:6px; padding:6px 12px; font-size:12px;" download="'+esc(photoFilename(e))+'" href="'+e.localPhoto+'">Save photo</a></div>' : "";
       var audio = e.audioNote ? '<audio controls src="'+e.audioNote+'"></audio>' : "";
       return '<div class="entry"><div class="entry-top"><div class="entry-tags"><span class="entry-cat" style="background:'+cat.color+'">'+esc(cat.label)+'</span><span class="muted" style="font-size:12px;">'+esc(siteName(e.site))+'</span></div><span class="entry-time">'+fmtTime(e.ts)+"</span></div>"+
         '<div class="entry-summary">'+esc(summaryLine(e))+"</div>"+

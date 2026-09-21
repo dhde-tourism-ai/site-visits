@@ -11,12 +11,13 @@ Open that link on your phone, add it to your home screen, and pick your name —
 - **Today** — pick the day (21/23/24 Sep, 2 Oct) to see that day's schedule, why it matters for the DHDE model, and field-conduct notes. No fixed roles — split up by category naturally when you arrive.
 - **Survey** — pick a site for the selected day and one of 8 categories: crowd count, bottlenecks & flow, multilingual signage, prayer & rest spaces, food & beverage census, **Intercept Survey**, photo log, spot tracker.
 - **Intercept Survey** — pick who you're talking to (Business/Shop Owner, Staff, or Tourist/Visitor) and the right question set appears, in English with Japanese underneath so you can show the screen if that helps:
-  - *Business/Shop Owner*: 6 multiple-choice questions (daily traffic, tourist share, busiest times, language support, payment methods, year-over-year trend) plus one open-ended question on their biggest challenge.
+  - *Business/Shop Owner*: 6 multiple-choice questions (daily traffic, tourist share, busiest times, language support, payment methods, year-over-year trend — every one includes a "Cannot answer" option) plus one open-ended question on their biggest challenge, and an optional photo of the business.
   - *Staff*: 4 open-ended questions about what visitors ask and struggle with.
   - *Tourist/Visitor*: 5 open-ended questions about purpose, confusion points, friction, and what would improve their visit.
-  - Any survey can carry an optional 60-second voice note instead of (or alongside) typed notes.
-- **Camera assist** — the crowd-count field has an optional on-device flow counter: draw a line across the path, and it tallies crossings for 60 seconds using a TensorFlow.js object-detection model running entirely in the browser.
+  - Any survey can carry an optional 60-second voice note instead of (or alongside) typed notes. Japanese text throughout is sized for readability at a glance, including when showing the screen to someone else.
+- **Manual tally** — the crowd-count field has an optional tap counter: point the camera at the crossing line for reference, tap once per person, and it times the gap between each one. (An earlier version tried automatic AI-based counting; it wasn't reliable in real crowds, so this replaced it — a human tap is just correct.)
 - **Spot Tracker** — box in a single photo spot and the phone watches it hands-free, logging how long each visitor or pair occupies it and how many people were there at once, until you stop.
+- **Photos** — Bottlenecks & Flow, Multilingual Signage, Prayer & Rest, Food & Beverage, Photo Log, and business surveys can all carry an optional photo. Every photo in the Log has a **Save photo** button with a descriptive filename (`dhde_<day>_<site>_<label>.jpg`) for saving to your camera roll.
 - **Log** — everyone's entries on this device, filterable by day/site/person, with JSON/CSV export (of whatever's currently filtered) and a paste-to-merge importer.
 - **Dashboard** — live coverage stats, entries by category, per-person contribution counts (tap a name to jump to their entries), and automatic gap flags for categories nobody has logged yet at a given site.
 
@@ -40,32 +41,43 @@ There's no traditional backend to maintain — Firestore (Firebase's document da
 
    Recommended once a day regardless of Firestore — it's the one place the full dataset (photos and audio included) ends up versioned and off-phone.
 
-### Firestore setup (one-time, already mostly done)
+### Firestore setup (done)
 
-Project `dhde-site-visits` is wired into `index.html` already. The one thing to do in the [Firebase console](https://console.firebase.google.com/project/dhde-site-visits/firestore/rules) is replace the default test-mode rules with this, so the public app URL can't be spammed by random bots scanning for open Firestore projects:
+Project `dhde-site-visits` is wired into `index.html`, database created (`asia-northeast1`), and rules published. Data is treated as open (same spirit as the FTAS-style datasets already in the DHDE pipeline) — anyone can read it, but only this app's writes get through, and nothing can ever be edited or deleted once written:
 
 ```
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /entries/{entryId} {
-      allow get, list: if resource.data.teamCode == "dhde-fukui-2026";
+      allow read: if true;
       allow create: if request.resource.data.teamCode == "dhde-fukui-2026"
                     && request.resource.data.keys().hasAll(['id','catId','site','day','author','ts'])
                     && request.resource.data.size() < 40;
+      allow update, delete: if false;
+    }
+    match /photos/{photoId} {
+      allow read: if true;
+      allow create: if request.resource.data.teamCode == "dhde-fukui-2026"
+                    && request.resource.data.keys().hasAll(['entryId','day','site','catId','author','ts','dataUrl'])
+                    && request.resource.data.size() < 900000;
       allow update, delete: if false;
     }
   }
 }
 ```
 
+Photos ride in their own `photos` collection (one doc per photo, `entryId` pointing back at the entry it belongs to) rather than inline in `entries`, because Firestore caps a document at 1MB and a couple of embedded photos would blow past that. Kept under ~900KB each by client-side compression before upload; if a phone somehow produces a larger one, that single photo just stays local (visible and exportable on that device) instead of failing the whole entry.
+
+Document IDs are human-readable on purpose — `{day}_{site}_{category}_{author}_{timestamp}_{random}`, e.g. `sep21_dotonbori_count_mohammed-sohail_20260921-093012_a8f3e` — so browsing the raw data in the [Firebase console](https://console.firebase.google.com/project/dhde-site-visits/firestore/databases/-default-/data) sorts and groups naturally by day, then site, then category, without needing to open each document. Every document also carries `siteName` and `dayLabel` fields spelling out the full names, not just the short ids used internally.
+
 `"dhde-fukui-2026"` is the `TEAM_CODE` constant near the top of the script in `index.html` — it's not a secret (anyone can view it in the page source), it just stops generic bots that don't bother reading a specific site's source. Entries are append-only by design (no update/delete) — matches the "nothing gets lost" goal and keeps the rules simple. If you ever need to change the code, update both places together.
 
 ## Computer vision notes
 
-Both the flow counter and the spot tracker run [TensorFlow.js](https://www.tensorflow.org/js) with the `coco-ssd` object detection model, loaded from a CDN the first time you open the app (needs wifi/data once), then cached by a service worker so it keeps working offline for the rest of the day. Detection happens entirely on-device — no video or image is ever uploaded anywhere.
+The Spot Tracker runs [TensorFlow.js](https://www.tensorflow.org/js) with the `coco-ssd` object detection model, loaded from a CDN the first time you open the app (needs wifi/data once), then cached by a service worker so it keeps working offline for the rest of the day. Detection happens entirely on-device — no video or image is ever uploaded anywhere.
 
-These are assistive estimates from a general-purpose person detector on a phone camera, not a calibrated sensor. In dense crowds it will undercount overlapping people. Spot-check both features against a manual tally occasionally, and always trust your own eyes over the number if they disagree.
+It's an assistive estimate from a general-purpose person detector on a phone camera, not a calibrated sensor — it can misjudge dense or unusual scenes. Spot-check it against a stopwatch occasionally, and always trust your own eyes over the number if they disagree. (The crowd counter used to run the same kind of detection; it wasn't reliable enough in real crowds, so it's now a manual tap counter instead — see "Manual tally" above.)
 
 ## Editing / redeploying
 

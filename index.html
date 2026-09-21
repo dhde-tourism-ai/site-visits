@@ -138,6 +138,11 @@
   .entry-time{font-family:var(--font-mono); font-size:11.5px; color:var(--ink-soft); flex:none;}
   .entry-summary{font-size:14px;}
   .entry-meta{font-size:12px; color:var(--ink-soft); margin-top:3px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .log-daygroup{margin-bottom:18px;}
+  .log-daygroup:last-child{margin-bottom:0;}
+  .log-daytitle{font-family:var(--font-display); font-weight:700; font-size:14.5px; color:var(--accent); padding-bottom:6px; margin-bottom:4px; border-bottom:2px solid var(--accent);}
+  .log-sitegroup{margin:10px 0 0 4px; padding-left:10px; border-left:2px solid var(--line);}
+  .log-sitetitle{font-weight:700; font-size:13px; color:var(--ink); margin-bottom:2px;}
   .entry-meta button{background:none; border:none; color:var(--accent); font-weight:700; font-size:12px; cursor:pointer; padding:0;}
   .entry img.thumb{margin-top:8px; max-height:160px; border-radius:8px; border:1px solid var(--line);}
   .entry audio{margin-top:8px; width:100%;}
@@ -168,6 +173,8 @@
 
   textarea#importBox{font-family:var(--font-mono); font-size:11.5px; min-height:80px;}
   .row2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .add-site-row{display:flex; gap:8px; margin:-6px 0 14px;}
+  .add-site-row input{flex:1;}
   .muted{color:var(--ink-soft); font-size:13px;}
   hr.soft{border:none; border-top:1px solid var(--line); margin:14px 0;}
 
@@ -270,6 +277,11 @@
     <section class="tab" id="tab-survey">
       <div class="eyebrow" style="margin-bottom:8px;">1 · Site (<span id="surveyDayLabel"></span>)</div>
       <div class="chiprow" id="siteChips"></div>
+      <div class="add-site-row" id="addSiteRow" hidden>
+        <input type="text" id="newSiteName" placeholder="New site name">
+        <button class="btn" id="confirmAddSite">Add</button>
+        <button class="btn ghost" id="cancelAddSite">Cancel</button>
+      </div>
       <div class="eyebrow" style="margin-bottom:8px;">2 · What are you recording?</div>
       <div class="chiprow" id="catChips"></div>
       <div class="card" id="formCard"></div>
@@ -360,7 +372,7 @@
 
   /* ---------------- multi-day itinerary ---------------- */
   var DAYS = [
-    { id:"sep21", date:"2026-09-21", label:"Osaka & Kyoto",
+    { id:"sep21", date:"2026-09-21", label:"Day 2 · Osaka & Kyoto",
       sites:[
         {id:"dotonbori", name:"Dotonbori & Namba", window:"09:30–10:45", focus:"Crowding, visitor-flow circulation, multilingual signage"},
         {id:"umeda", name:"Umeda & Osaka Station", window:"11:10–12:00", focus:"Inbound visitor behaviour (incl. lunch)"},
@@ -378,7 +390,7 @@
         {t:"20:00–20:30", w:"Check in", n:"Women: 夢テラス, Sabae · Men: パレスイン福井", field:false},
         {t:"20:30", w:"Day ends", n:"Orientation materials distributed at check-in", field:false}
       ]},
-    { id:"sep23", date:"2026-09-23", label:"Eiheiji, Katsuyama & Tojinbo",
+    { id:"sep23", date:"2026-09-23", label:"Day 4 · Eiheiji, Katsuyama & Tojinbo",
       sites:[
         {id:"eiheiji", name:"Eiheiji Temple", window:"09:00–10:30", focus:"Visitor circulation, crowd dispersal, multilingual signage, under-vibrancy observation"},
         {id:"dinomuseum", name:"Fukui Prefectural Dinosaur Museum", window:"11:15–13:15", focus:"Ticketed timed-entry attraction — queue/flow inside controlled capacity. Halal lunch unreliable, bring a packed lunch"},
@@ -395,7 +407,7 @@
         {t:"18:00–18:30", w:"Edge-AI camera check — Fukui Station East", n:"Camera in the tourist information centre, ceiling by the counter. Open until 19:00", field:false},
         {t:"18:30", w:"Day ends", n:"", field:false}
       ]},
-    { id:"sep24", date:"2026-09-24", label:"Komatsu & Kanazawa",
+    { id:"sep24", date:"2026-09-24", label:"Day 5 · Komatsu & Kanazawa",
       sites:[
         {id:"komatsu", name:"Komatsu Airport", window:"08:55–09:25", focus:"Arrival/departure routes, multilingual provision, the Hokuriku inbound corridor"},
         {id:"c21museum", name:"21st Century Museum (exchange zone)", window:"10:10–10:35", focus:"Exhibition zone closed today — exterior & exchange zone observation only"},
@@ -419,18 +431,44 @@
         {t:"20:00", w:"Men + staff arrive Fukui Station East", n:"", field:false},
         {t:"20:00", w:"Day ends", n:"", field:false}
       ]},
-    { id:"oct2", date:"2026-10-02", label:"Merchant Dashboard Trial",
+    { id:"oct2", date:"2026-10-02", label:"Day 13 · System Integration & Merchant Trial",
       sites:[
         {id:"merchanttrial", name:"Eiheiji / Katsuyama Merchants", window:"13:00–15:30", focus:"Trial the DHDE dashboard with local merchants — capture reactions and follow-up interest via the Intercept Survey"}
       ],
       schedule:[
-        {t:"08:00–18:30", w:"University car booked (7-seater)", n:"Covers the whole window below", field:false},
-        {t:"13:00–15:30", w:"Merchant dashboard trial — Eiheiji or Katsuyama", n:"Up to 6 participants + Amil. Destination still being fixed between Eiheiji Town and Katsuyama", field:true}
+        {t:"08:15", w:"Depart Fukui for Shiki-no-Mori, Eiheiji", n:"~30 min. Women driven by Mr. Takino from Lounge Taki; men take the university 7-seater (booked 08:00–18:30)", field:false},
+        {t:"09:00", w:"Assemble", n:"", field:false},
+        {t:"09:00–12:00", w:"Stress testing & end-to-end verification (production AWS)", n:"Bug fixes", field:false},
+        {t:"12:00–13:30", w:"Lunch & Jumu'ah prayer (Muslim participants)", n:"Jamaah held in a room at Shiki-no-Mori", field:false},
+        {t:"13:00–15:30", w:"Merchant dashboard trial — Eiheiji or Katsuyama", n:"Up to 6 participants + Amil. Destination still being fixed between Eiheiji Town and Katsuyama", field:true},
+        {t:"15:30–17:00", w:"Finalise the demonstration system", n:"No further feature work after this point", field:false},
+        {t:"17:00", w:"Day ends", n:"", field:false}
+      ]},
+    { id:"oct8", date:"2026-10-08", label:"Day 19 · Ichijodani Visit",
+      sites:[
+        {id:"ichijodani", name:"Ichijodani Asakura Clan Ruins", window:"09:20–11:20", focus:"Under-Vibrancy observation and GIS recording — Group A only (small party)"}
+      ],
+      schedule:[
+        {t:"09:00–09:20", w:"Assemble, safety briefing, split into Group A (cultural) and Group B (campus)", n:"Groups swap after lunch, so nobody spends the whole day on the cultural programme. Transport: university 7-seater, booked 08:30–18:30", field:false},
+        {t:"09:20–11:20", w:"Group A — Ichijodani site visit", n:"Under-Vibrancy observation and GIS recording, led by Gabriella. Group B continues the paper and roadmap on campus", field:true},
+        {t:"11:30–12:00", w:"Prepare IF-Studio, presenters' final check", n:"Room booked 11:30–13:30", field:false},
+        {t:"12:10–12:50", w:"Lunch seminar: Saudi Arabia (Prof. Showail, Jana)", n:"30 min talk + 10 min Q&A, English. No eating in the room", field:false},
+        {t:"13:10–15:00", w:"Groups swap: A writes on campus, B does food-culture activity in Fukui City", n:"Echizen soba, Echizen crab, etc.", field:false},
+        {t:"15:00–15:20", w:"Regroup and break", n:"", field:false},
+        {t:"15:20–16:20", w:"Programme reflection", n:"Review of results and remaining tasks", field:false},
+        {t:"16:20–17:00", w:"Confirm joint research roadmap & pre-departure tasks", n:"", field:false},
+        {t:"17:00", w:"Day ends", n:"", field:false}
       ]}
   ];
 
   function findDay(id){ return DAYS.filter(function(d){return d.id===id;})[0]; }
-  function allSites(){ var out=[]; DAYS.forEach(function(d){ d.sites.forEach(function(s){ out.push(Object.assign({dayId:d.id}, s)); }); }); return out; }
+  function sitesForDay(dayId){
+    var d = findDay(dayId);
+    var builtin = d ? d.sites : [];
+    var custom = (state.customSites||[]).filter(function(s){return s.day===dayId;});
+    return builtin.concat(custom);
+  }
+  function allSites(){ var out=[]; DAYS.forEach(function(d){ sitesForDay(d.id).forEach(function(s){ out.push(Object.assign({dayId:d.id}, s)); }); }); return out; }
   function siteName(id){ var s = allSites().filter(function(x){return x.id===id;})[0]; return s ? s.name : id; }
   function dayLabel(id){ var d = findDay(id); return d ? d.label : id; }
   function defaultDayId(){
@@ -559,7 +597,7 @@
   var state = {
     identity: null, day: defaultDayId(), site: null, cat: "count", tab: "today",
     entries: new Map(), logFilterDay: "all", logFilterSite: "all", logFilterAuthor: null,
-    dashFilterDay: "all", sinceExport: 0, cloudOn: false
+    dashFilterDay: "all", sinceExport: 0, cloudOn: false, customSites: []
   };
   state.site = findDay(state.day).sites[0].id;
 
@@ -577,6 +615,7 @@
   function fmtDur(sec){ var m=Math.floor(sec/60), s=sec%60; return m+":"+(s<10?"0":"")+s; }
 
   function persistLocal(){ try{ localStorage.setItem("dhde_entries", JSON.stringify(Array.from(state.entries.values()))); localStorage.setItem("dhde_since_export", String(state.sinceExport)); }catch(e){} }
+  function persistCustomSites(){ try{ localStorage.setItem("dhde_custom_sites", JSON.stringify(state.customSites)); }catch(e){} }
   function loadLocal(){
     try{
       var raw = localStorage.getItem("dhde_entries");
@@ -585,6 +624,8 @@
       if(id) state.identity = id;
       var se = localStorage.getItem("dhde_since_export");
       if(se) state.sinceExport = Number(se)||0;
+      var cs = localStorage.getItem("dhde_custom_sites");
+      if(cs) state.customSites = JSON.parse(cs);
     }catch(e){}
   }
 
@@ -636,6 +677,22 @@
           });
           if(changed){ persistLocal(); renderLog(); renderDash(); }
         }, function(){});
+      db.collection("customSites").where("teamCode","==",TEAM_CODE).limit(200)
+        .onSnapshot(function(snap){
+          var changed = false;
+          snap.docChanges().forEach(function(change){
+            if(change.type==="removed") return;
+            var s = change.doc.data();
+            if(!state.customSites.some(function(x){return x.id===s.id;})){
+              state.customSites.push(s); changed = true;
+            }
+          });
+          if(changed){
+            persistCustomSites();
+            if(state.tab==="survey") renderSiteChips();
+            renderLogFilters();
+          }
+        }, function(){});
     }catch(e){
       db = null; state.cloudOn = false; updateCloudUI();
     }
@@ -655,6 +712,11 @@
       entryId: entry.id, day: entry.day, dayLabel: dayLabel(entry.day), site: entry.site, siteName: siteName(entry.site),
       catId: entry.catId, author: entry.author, ts: entry.ts, teamCode: TEAM_CODE, dataUrl: entry.localPhoto
     }).catch(function(){ /* photo stays local + travels via export if this one's too large or offline */ });
+  }
+
+  function pushCustomSiteToCloud(site){
+    if(!db) return;
+    db.collection("customSites").doc(site.id).set(Object.assign({}, site, {teamCode: TEAM_CODE})).catch(function(){});
   }
 
   /* ---------------- identity gate ---------------- */
@@ -703,7 +765,7 @@
 
   function renderToday(){
     renderDayChips("dayChips", function(){return state.day;}, function(v){
-      state.day = v; state.site = findDay(v).sites[0].id;
+      state.day = v; state.site = sitesForDay(v)[0].id;
       renderToday(); renderSiteChips(); renderCatChips(); renderForm();
     }, false);
     var d = findDay(state.day);
@@ -717,11 +779,26 @@
   function renderSiteChips(){
     var el = document.getElementById("siteChips");
     document.getElementById("surveyDayLabel").textContent = dayLabel(state.day);
-    var sites = findDay(state.day).sites;
+    var sites = sitesForDay(state.day);
     el.innerHTML = sites.map(function(s){
       return '<div class="chip'+(s.id===state.site?" active":"")+'" data-site="'+s.id+'"><b>'+esc(s.name)+"</b><small>"+esc(s.window)+"</small></div>";
-    }).join("");
-    el.querySelectorAll(".chip").forEach(function(c){ c.addEventListener("click", function(){ state.site = c.getAttribute("data-site"); renderSiteChips(); }); });
+    }).join("") + '<div class="chip" id="addSiteChip" style="border-style:dashed; color:var(--accent);"><b>+ Add site</b><small>New location</small></div>';
+    el.querySelectorAll("[data-site]").forEach(function(c){ c.addEventListener("click", function(){ state.site = c.getAttribute("data-site"); renderSiteChips(); renderForm(); }); });
+    document.getElementById("addSiteChip").addEventListener("click", function(){
+      document.getElementById("addSiteRow").hidden = false;
+      document.getElementById("newSiteName").focus();
+    });
+  }
+  function addCustomSite(name){
+    name = name.trim();
+    if(!name) return;
+    var site = { id: "custom-"+slug(name)+"-"+uid().slice(-4), day: state.day, name: name, window: "Added in the field", focus: "Custom site added by "+state.identity, addedBy: state.identity, ts: new Date().toISOString() };
+    state.customSites.push(site);
+    persistCustomSites();
+    state.site = site.id;
+    renderSiteChips(); renderForm();
+    pushCustomSiteToCloud(site);
+    toast("Added "+name);
   }
   function renderCatChips(){
     var el = document.getElementById("catChips");
@@ -1349,7 +1426,7 @@
     dayEl.querySelectorAll(".chip").forEach(function(c){ c.addEventListener("click", function(){ state.logFilterDay = c.getAttribute("data-d"); state.logFilterSite="all"; renderLogFilters(); renderLog(); }); });
 
     var siteEl = document.getElementById("logSiteFilters");
-    var pool = state.logFilterDay==="all" ? allSites() : findDay(state.logFilterDay).sites;
+    var pool = state.logFilterDay==="all" ? allSites() : sitesForDay(state.logFilterDay);
     var siteChips = [{id:"all", label:"All sites"}].concat(pool.map(function(s){return {id:s.id, label:s.name.split(" ")[0]};}));
     siteEl.innerHTML = siteChips.map(function(c){ return '<div class="chip'+(state.logFilterSite===c.id?" active":"")+'" data-s="'+c.id+'" style="min-width:auto;"><b>'+esc(c.label)+"</b></div>"; }).join("") +
       (state.logFilterAuthor ? '<div class="chip active" data-clearauthor="1" style="min-width:auto;"><b>'+esc(state.logFilterAuthor)+" ✕</b></div>" : "");
@@ -1383,6 +1460,15 @@
     return "dhde_"+slug(entry.day)+"_"+slug(entry.site)+"_"+slug(label)+".jpg";
   }
 
+  function entryHtml(e){
+    var cat = catInfo(e.catId);
+    var photo = e.localPhoto ? '<img class="thumb" src="'+e.localPhoto+'"><div><a class="btn ghost" style="display:inline-block; margin-top:6px; padding:6px 12px; font-size:12px;" download="'+esc(photoFilename(e))+'" href="'+e.localPhoto+'">Save photo</a></div>' : "";
+    var audio = e.audioNote ? '<audio controls src="'+e.audioNote+'"></audio>' : "";
+    return '<div class="entry"><div class="entry-top"><div class="entry-tags"><span class="entry-cat" style="background:'+cat.color+'">'+esc(cat.label)+'</span></div><span class="entry-time">'+fmtTime(e.ts)+"</span></div>"+
+      '<div class="entry-summary">'+esc(summaryLine(e))+"</div>"+
+      '<div class="entry-meta"><span>'+esc(e.author)+"</span></div>"+photo+audio+"</div>";
+  }
+
   function renderLog(){
     if(state.tab!=="log") return;
     renderLogFilters();
@@ -1393,14 +1479,31 @@
     var list = filteredEntries(state.logFilterDay, state.logFilterSite, state.logFilterAuthor);
     var el = document.getElementById("logList");
     if(list.length===0){ el.innerHTML = '<p class="muted">No entries yet — log something from the Survey tab.</p>'; return; }
-    el.innerHTML = list.map(function(e){
-      var cat = catInfo(e.catId);
-      var photo = e.localPhoto ? '<img class="thumb" src="'+e.localPhoto+'"><div><a class="btn ghost" style="display:inline-block; margin-top:6px; padding:6px 12px; font-size:12px;" download="'+esc(photoFilename(e))+'" href="'+e.localPhoto+'">Save photo</a></div>' : "";
-      var audio = e.audioNote ? '<audio controls src="'+e.audioNote+'"></audio>' : "";
-      return '<div class="entry"><div class="entry-top"><div class="entry-tags"><span class="entry-cat" style="background:'+cat.color+'">'+esc(cat.label)+'</span><span class="muted" style="font-size:12px;">'+esc(siteName(e.site))+'</span></div><span class="entry-time">'+fmtTime(e.ts)+"</span></div>"+
-        '<div class="entry-summary">'+esc(summaryLine(e))+"</div>"+
-        '<div class="entry-meta"><span>'+esc(e.author)+"</span><span>"+esc(dayLabel(e.day))+"</span></div>"+photo+audio+"</div>";
-    }).join("");
+
+    // group by day, then site, so it's scannable rather than one long mixed feed
+    var byDay = {};
+    list.forEach(function(e){
+      byDay[e.day] = byDay[e.day] || {};
+      byDay[e.day][e.site] = byDay[e.day][e.site] || [];
+      byDay[e.day][e.site].push(e);
+    });
+    var dayIds = Object.keys(byDay).sort(function(a,b){
+      var da = findDay(a), db_ = findDay(b);
+      return (db_?db_.date:a).localeCompare(da?da.date:b); // newest day first
+    });
+    var html = "";
+    dayIds.forEach(function(dayId){
+      html += '<div class="log-daygroup"><div class="log-daytitle">'+esc(dayLabel(dayId))+'</div>';
+      var siteIds = Object.keys(byDay[dayId]).sort(function(a,b){ return siteName(a).localeCompare(siteName(b)); });
+      siteIds.forEach(function(siteId){
+        var siteEntries = byDay[dayId][siteId];
+        html += '<div class="log-sitegroup"><div class="log-sitetitle">'+esc(siteName(siteId))+' <span class="muted">('+siteEntries.length+")</span></div>"+
+          siteEntries.map(entryHtml).join("")+
+        "</div>";
+      });
+      html += "</div>";
+    });
+    el.innerHTML = html;
   }
 
   function toCSV(rows){
@@ -1498,6 +1601,19 @@
       });
     });
   }
+
+  document.getElementById("confirmAddSite").addEventListener("click", function(){
+    var val = document.getElementById("newSiteName").value;
+    if(val && val.trim()){
+      addCustomSite(val);
+      document.getElementById("newSiteName").value = "";
+      document.getElementById("addSiteRow").hidden = true;
+    }
+  });
+  document.getElementById("cancelAddSite").addEventListener("click", function(){
+    document.getElementById("newSiteName").value = "";
+    document.getElementById("addSiteRow").hidden = true;
+  });
 
   /* ---------------- boot ---------------- */
   loadLocal();

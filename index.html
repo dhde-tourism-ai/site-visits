@@ -592,7 +592,7 @@
       firebase.initializeApp(firebaseConfig);
       db = firebase.firestore();
       db.enablePersistence({synchronizeTabs:true}).catch(function(){ /* multiple tabs, or unsupported — fine, we still have localStorage */ });
-      db.collection("entries").where("teamCode","==",TEAM_CODE).orderBy("ts","desc").limit(1000)
+      db.collection("entries").where("teamCode","==",TEAM_CODE).limit(1000)
         .onSnapshot(function(snap){
           state.cloudOn = true; updateCloudUI();
           snap.docChanges().forEach(function(change){

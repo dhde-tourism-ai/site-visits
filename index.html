@@ -76,6 +76,8 @@
   header.topbar .mark b{font-family:var(--font-display); font-size:15px; font-weight:700;}
   .identity-chip{display:flex; align-items:center; gap:7px; background:var(--surface); border:1px solid var(--line); border-radius:999px; padding:6px 12px 6px 6px; cursor:pointer; font-size:13px; font-weight:600;}
   .avatar{width:22px; height:22px; border-radius:50%; background:var(--accent); color:var(--accent-ink); display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; flex:none;}
+  .cloud-dot{width:7px; height:7px; border-radius:50%; background:var(--ink-soft); flex:none; transition:background .3s;}
+  .cloud-dot.on{background:var(--good);}
 
   main{flex:1; padding:16px 0 8px;}
   section.tab{display:none;}
@@ -224,7 +226,8 @@
       <svg width="22" height="22" viewBox="0 0 30 30" fill="none"><circle cx="15" cy="15" r="13" stroke="var(--accent)" stroke-width="2.6"/><path d="M15 5v20M5 15h20" stroke="var(--accent)" stroke-width="1.8"/><circle cx="15" cy="15" r="3" fill="var(--accent)"/></svg>
       <b>DHDE Field Survey</b>
     </div>
-    <div class="identity-chip" id="identityChip">
+    <div class="identity-chip" id="identityChip" title="Live sync status">
+      <span class="cloud-dot" id="cloudDot"></span>
       <span class="avatar" id="avatarInit">–</span>
       <span id="identityName">Sign in</span>
     </div>
@@ -255,7 +258,8 @@
       </div>
       <div class="card">
         <h2>How your data reaches everyone</h2>
-        <p class="muted" style="margin-top:6px;">This app has no server — everything (entries, photos, voice notes) stays on your phone until you export it. At each break, open <b style="color:var(--ink);">Log</b>, tap <b style="color:var(--ink);">Export</b>, and send the file to whoever is compiling. They paste it into <b style="color:var(--ink);">Merge in a teammate's export</b> on their own phone. The compiler can also commit the merged file into the team's GitHub repo so it's never only on one phone — see the README.</p>
+        <p class="muted" style="margin-top:6px;">The dot next to your name up top turns <b style="color:var(--good);">green</b> when you're connected — while it's on, your counts, ratings, and survey answers sync live to the whole team automatically, and you'll see everyone else's the same way. It queues locally and catches up the moment you're back online, so it's safe to keep working with no signal.</p>
+        <p class="muted" style="margin-top:8px;"><b style="color:var(--ink);">Photos and voice notes don't sync live</b> — they're too large for that. They stay on your phone until you export: open <b style="color:var(--ink);">Log</b>, tap <b style="color:var(--ink);">Export</b>, and send the file to whoever is compiling, who pastes it into <b style="color:var(--ink);">Merge in a teammate's export</b>. Do this at every break regardless of the sync dot.</p>
       </div>
     </section>
 
@@ -325,9 +329,28 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script>
 (function(){
   "use strict";
+
+  /* ---------------- cloud sync (Firestore) ---------------- */
+  // Structured data (counts, ratings, survey answers, notes) syncs live to
+  // everyone when online. Photos and voice notes stay device-local and travel
+  // via Export/Merge instead — Firestore documents cap at 1MB and a couple of
+  // photos would blow past that, so we deliberately don't try.
+  var TEAM_CODE = "dhde-fukui-2026";
+  var firebaseConfig = {
+    apiKey: "AIzaSyCwCU3K-2Jk-XKjKDc1GKBMimQ5s396XVs",
+    authDomain: "dhde-site-visits.firebaseapp.com",
+    projectId: "dhde-site-visits",
+    storageBucket: "dhde-site-visits.firebasestorage.app",
+    messagingSenderId: "497784657818",
+    appId: "1:497784657818:web:6258e213cd84ad40e04c23",
+    measurementId: "G-V015DVXHL0"
+  };
+  var db = null;
 
   var ROSTER = ["Amil Khanzada","Mohammed Sohail","Dina Belay","Jana Wasfi","Husn Shujaat","Muskaan Irfan","Muhammad Anugra Rizky Rambe","Gabriella Gunarto","Ahmad Showail","Morgan Lan","Yu Kitagawa"];
 
@@ -528,7 +551,7 @@
   var state = {
     identity: null, day: defaultDayId(), site: null, cat: "count", tab: "today",
     entries: new Map(), logFilterDay: "all", logFilterSite: "all", logFilterAuthor: null,
-    dashFilterDay: "all", sinceExport: 0
+    dashFilterDay: "all", sinceExport: 0, cloudOn: false
   };
   state.site = findDay(state.day).sites[0].id;
 
@@ -556,6 +579,44 @@
     t.textContent = msg; t.classList.add("show");
     clearTimeout(toast._t);
     toast._t = setTimeout(function(){ t.classList.remove("show"); }, 2200);
+  }
+
+  function updateCloudUI(){
+    var dot = document.getElementById("cloudDot");
+    if(dot) dot.classList.toggle("on", !!state.cloudOn);
+  }
+
+  function initCloudSync(){
+    if(!window.firebase){ return; }
+    try{
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.firestore();
+      db.enablePersistence({synchronizeTabs:true}).catch(function(){ /* multiple tabs, or unsupported — fine, we still have localStorage */ });
+      db.collection("entries").where("teamCode","==",TEAM_CODE).orderBy("ts","desc").limit(1000)
+        .onSnapshot(function(snap){
+          state.cloudOn = true; updateCloudUI();
+          snap.docChanges().forEach(function(change){
+            if(change.type==="removed") return;
+            var incoming = change.doc.data();
+            var existing = state.entries.get(change.doc.id);
+            if(existing && (existing.localPhoto || existing.audioNote)){
+              incoming = Object.assign({}, incoming, {localPhoto: existing.localPhoto, audioNote: existing.audioNote});
+            }
+            state.entries.set(change.doc.id, incoming);
+          });
+          persistLocal();
+          renderLog(); renderDash();
+        }, function(){ state.cloudOn = false; updateCloudUI(); });
+    }catch(e){
+      db = null; state.cloudOn = false; updateCloudUI();
+    }
+  }
+
+  function pushToCloud(entry){
+    if(!db) return;
+    var slim = Object.assign({}, entry, {teamCode: TEAM_CODE});
+    delete slim.localPhoto; delete slim.audioNote;
+    db.collection("entries").doc(entry.id).set(slim).catch(function(){ /* stays queued locally by Firestore, or safe in localStorage either way */ });
   }
 
   /* ---------------- identity gate ---------------- */
@@ -799,7 +860,8 @@
     var entry = Object.assign({ id: uid(), catId: catId, site: state.site, day: state.day, author: state.identity, ts: new Date().toISOString(), data: payload }, extra||{});
     function finish(){
       state.entries.set(entry.id, entry); state.sinceExport++; persistLocal();
-      toast("Saved to this device"); renderForm(); renderLog(); renderDash();
+      toast(state.cloudOn ? "Saved — syncing live" : "Saved to this device"); renderForm(); renderLog(); renderDash();
+      pushToCloud(entry);
     }
     if(photoField && root){
       var fileInput = document.getElementById("f_"+photoField.id);
@@ -1158,6 +1220,7 @@
       var entry = { id: uid(), catId:"spot", site: state.site, day: state.day, author: state.identity,
         ts: new Date(occ.since).toISOString(), data:{ spotLabel: label, durationSec: durSec, peakCount: occ.peak } };
       state.entries.set(entry.id, entry); state.sinceExport++; persistLocal();
+      pushToCloud(entry);
       sessions.unshift(entry);
       renderSessionList();
       renderLog(); renderDash();
@@ -1312,7 +1375,7 @@
     var raw = document.getElementById("importBox").value.trim(); if(!raw) return;
     try{
       var arr = JSON.parse(raw); var n = 0;
-      arr.forEach(function(e){ if(e && e.id && !state.entries.has(e.id)){ state.entries.set(e.id, e); n++; } });
+      arr.forEach(function(e){ if(e && e.id && !state.entries.has(e.id)){ state.entries.set(e.id, e); n++; pushToCloud(e); } });
       persistLocal(); document.getElementById("importBox").value = "";
       toast("Merged "+n+" new entries"); renderLog(); renderDash();
     }catch(e){ toast("Couldn't read that JSON"); }
@@ -1385,6 +1448,7 @@
   if("serviceWorker" in navigator){
     window.addEventListener("load", function(){ navigator.serviceWorker.register("sw.js").catch(function(){}); });
   }
+  initCloudSync();
 })();
 </script>
 </body>

@@ -173,7 +173,8 @@
 
   textarea#importBox{font-family:var(--font-mono); font-size:11.5px; min-height:80px;}
   .row2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
-  .add-site-row{display:flex; gap:8px; margin:-6px 0 14px;}
+  .add-site-trigger{display:block; width:100%; text-align:left; background:none; border:1px dashed var(--line); border-radius:10px; padding:9px 12px; color:var(--accent); font-weight:700; font-size:13px; cursor:pointer; margin-bottom:10px;}
+  .add-site-row{display:flex; gap:8px; margin:-4px 0 14px;}
   .add-site-row input{flex:1;}
   .muted{color:var(--ink-soft); font-size:13px;}
   hr.soft{border:none; border-top:1px solid var(--line); margin:14px 0;}
@@ -277,6 +278,7 @@
     <section class="tab" id="tab-survey">
       <div class="eyebrow" style="margin-bottom:8px;">1 · Site (<span id="surveyDayLabel"></span>)</div>
       <div class="chiprow" id="siteChips"></div>
+      <button type="button" class="add-site-trigger" id="addSiteTrigger">+ Add a site not listed here</button>
       <div class="add-site-row" id="addSiteRow" hidden>
         <input type="text" id="newSiteName" placeholder="New site name">
         <button class="btn" id="confirmAddSite">Add</button>
@@ -782,12 +784,8 @@
     var sites = sitesForDay(state.day);
     el.innerHTML = sites.map(function(s){
       return '<div class="chip'+(s.id===state.site?" active":"")+'" data-site="'+s.id+'"><b>'+esc(s.name)+"</b><small>"+esc(s.window)+"</small></div>";
-    }).join("") + '<div class="chip" id="addSiteChip" style="border-style:dashed; color:var(--accent);"><b>+ Add site</b><small>New location</small></div>';
+    }).join("");
     el.querySelectorAll("[data-site]").forEach(function(c){ c.addEventListener("click", function(){ state.site = c.getAttribute("data-site"); renderSiteChips(); renderForm(); }); });
-    document.getElementById("addSiteChip").addEventListener("click", function(){
-      document.getElementById("addSiteRow").hidden = false;
-      document.getElementById("newSiteName").focus();
-    });
   }
   function addCustomSite(name){
     name = name.trim();
@@ -1602,6 +1600,11 @@
     });
   }
 
+  document.getElementById("addSiteTrigger").addEventListener("click", function(){
+    var row = document.getElementById("addSiteRow");
+    row.hidden = !row.hidden;
+    if(!row.hidden) document.getElementById("newSiteName").focus();
+  });
   document.getElementById("confirmAddSite").addEventListener("click", function(){
     var val = document.getElementById("newSiteName").value;
     if(val && val.trim()){

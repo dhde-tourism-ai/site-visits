@@ -170,6 +170,13 @@
   .report-quote-list{margin:6px 0; padding-left:18px; font-size:12.5px; color:var(--ink);}
   .report-quote-list li{margin-bottom:4px;}
   .report-gap{color:var(--critical); font-size:12.5px; margin-bottom:3px;}
+  .report-toc{font-size:12px; color:var(--ink-soft); line-height:1.8; padding:10px 12px; background:var(--surface-2); border-radius:8px;}
+  .report-toc a{color:var(--accent); font-weight:600; text-decoration:none;}
+  .gap-matrix th, .gap-matrix td{text-align:center; padding:5px 7px;}
+  .gap-matrix th:first-child, .gap-matrix td:first-child{text-align:left;}
+  .gm-yes{color:var(--good); font-weight:700;}
+  .gm-no{color:var(--critical);}
+  @media print{ .report-toc a{color:#000;} }
   @media print{
     .report-toolbar{display:none;}
     .report-overlay{position:static; background:#fff; color:#000;}
@@ -1702,23 +1709,90 @@
     return html;
   }
 
+  var SHORT_CAT_LABEL = {count:"Count",flow:"Flow",lang:"Signage",rest:"Rest",food:"Food",survey:"Survey",photo:"Photo",spot:"Spot"};
+
+  function svgBarChart(items){
+    items = items.filter(function(i){return i.value>0;});
+    if(!items.length) return '<p class="muted">Nothing to chart yet.</p>';
+    var maxV = Math.max.apply(null, items.map(function(i){return i.value;}));
+    var barH = 22, gap = 9, labelW = 148, chartW = 300, leftPad = labelW+10, w = leftPad+chartW+46, h = items.length*(barH+gap)+gap;
+    var rows = items.map(function(it,i){
+      var y = gap + i*(barH+gap);
+      var bw = maxV>0 ? Math.max((it.value/maxV)*chartW, 3) : 3;
+      return '<text x="'+labelW+'" y="'+(y+barH*0.68)+'" text-anchor="end" font-size="11" fill="#4E5A7C" font-family="sans-serif">'+esc(it.label)+'</text>'+
+        '<rect x="'+leftPad+'" y="'+y+'" width="'+bw+'" height="'+barH+'" rx="4" fill="'+(it.color||"var(--accent)")+'"></rect>'+
+        '<text x="'+(leftPad+bw+8)+'" y="'+(y+barH*0.68)+'" font-size="11.5" font-weight="700" fill="currentColor" font-family="sans-serif">'+it.value+"</text>";
+    }).join("");
+    return '<svg viewBox="0 0 '+w+' '+h+'" width="100%" style="max-width:480px; height:auto; color:var(--ink);" role="img">'+rows+"</svg>";
+  }
+
+  function gapMatrixHtml(dayFilter, all){
+    var daysToCheck = dayFilter==="all" ? DAYS : [findDay(dayFilter)];
+    var rows = [];
+    daysToCheck.forEach(function(d){
+      if(!d) return;
+      sitesForDay(d.id).forEach(function(s){
+        var entries = all.filter(function(e){return e.site===s.id;});
+        var cells = CAT_ORDER.map(function(cid){ return entries.some(function(e){return e.catId===cid;}); });
+        rows.push({label: d.label+" · "+s.name, cells: cells});
+      });
+    });
+    if(!rows.length) return '<p class="muted">No planned sites in this scope.</p>';
+    var missing = 0; rows.forEach(function(r){ r.cells.forEach(function(c){ if(!c) missing++; }); });
+    var total = rows.length*CAT_ORDER.length;
+    var header = "<tr><th>Site</th>"+CAT_ORDER.map(function(c){return "<th>"+esc(SHORT_CAT_LABEL[c])+"</th>";}).join("")+"</tr>";
+    var body = rows.map(function(r){
+      return "<tr><td>"+esc(r.label)+"</td>"+r.cells.map(function(c){ return '<td class="'+(c?"gm-yes":"gm-no")+'">'+(c?"✓":"–")+"</td>"; }).join("")+"</tr>";
+    }).join("");
+    return '<p class="muted">'+missing+" of "+total+" site/category combinations have no data yet — "+Math.round((total-missing)/total*100)+"% coverage.</p>"+
+      '<div style="overflow-x:auto;"><table class="report-table gap-matrix"><thead>'+header+"</thead><tbody>"+body+"</tbody></table></div>";
+  }
+
+  function personSectionHtml(author, entries){
+    var byCat = countBy(entries, function(e){return e.catId;});
+    var chartItems = CAT_ORDER.filter(function(c){return byCat[c];}).map(function(c){ return {label: CATEGORIES[c].label, value: byCat[c], color: CATEGORIES[c].color}; });
+    var sorted = entries.slice().sort(function(a,b){ return new Date(a.ts)-new Date(b.ts); });
+    var rows = sorted.map(function(e){
+      var cat = catInfo(e.catId);
+      return "<tr><td>"+esc(fmtTime(e.ts))+"</td><td>"+esc(dayLabel(e.day))+"</td><td>"+esc(siteName(e.site))+'</td><td><span style="color:'+cat.color+'; font-weight:700;">'+esc(cat.label)+"</span></td><td>"+esc(summaryLine(e))+"</td></tr>";
+    }).join("");
+    return "<h3>"+esc(author)+" — "+entries.length+" entr"+(entries.length===1?"y":"ies")+"</h3>"+
+      svgBarChart(chartItems)+
+      '<div style="overflow-x:auto;"><table class="report-table"><tr><th>Time</th><th>Day</th><th>Site</th><th>Category</th><th>Summary</th></tr>'+rows+"</table></div>";
+  }
+
   function buildReportHtml(dayFilter){
     var all = filteredEntries(dayFilter, "all", null);
     var scopeLabel = dayFilter==="all" ? "All days" : dayLabel(dayFilter);
     var byDay = {};
     all.forEach(function(e){ byDay[e.day]=byDay[e.day]||{}; byDay[e.day][e.site]=byDay[e.day][e.site]||[]; byDay[e.day][e.site].push(e); });
     var dayIds = Object.keys(byDay).sort(function(a,b){ var da=findDay(a), db_=findDay(b); return (da?da.date:a).localeCompare(db_?db_.date:b); });
-    var contributors = new Set(all.map(function(e){return e.author;}));
+    var contributors = Array.from(new Set(all.map(function(e){return e.author;})));
     var siteCount = new Set(all.map(function(e){return e.site;})).size;
 
     var html = "<h1>DHDE Field Survey Report</h1>"+
       '<div class="report-meta">Scope: '+esc(scopeLabel)+" · Generated "+esc(new Date().toLocaleString())+" by "+esc(state.identity||"—")+"</div>"+
-      '<div class="report-stat-grid">'+statTile(all.length,"Total entries")+statTile(contributors.size,"Contributors")+statTile(siteCount,"Sites covered")+statTile(dayIds.length,"Days covered")+"</div>";
+      '<div class="report-stat-grid">'+statTile(all.length,"Total entries")+statTile(contributors.length,"Contributors")+statTile(siteCount,"Sites covered")+statTile(dayIds.length,"Days covered")+"</div>";
 
     if(all.length===0){ html += '<p class="muted">No entries in this scope yet.</p>'; return html; }
 
+    html += '<p class="report-toc"><a href="#rep-overview">Overview</a> · <a href="#rep-coverage">Coverage</a> · '+
+      dayIds.map(function(id){ return '<a href="#rep-'+esc(id)+'">'+esc(dayLabel(id))+"</a>"; }).join(" · ")+
+      ' · <a href="#rep-people">Contributors</a></p>';
+
+    var catCounts = countBy(all, function(e){return e.catId;});
+    var catItems = CAT_ORDER.map(function(c){ return {label: CATEGORIES[c].label, value: catCounts[c]||0, color: CATEGORIES[c].color}; });
+    var personCounts = countBy(all, function(e){return e.author;});
+    var personItems = Object.keys(personCounts).sort(function(a,b){return personCounts[b]-personCounts[a];}).map(function(p){ return {label:p, value:personCounts[p], color:"var(--accent)"}; });
+
+    html += '<h2 id="rep-overview">Overview</h2>'+
+      "<h3>Entries by category</h3>"+svgBarChart(catItems)+
+      "<h3>Entries by person</h3>"+svgBarChart(personItems);
+
+    html += '<h2 id="rep-coverage">Coverage gaps</h2>'+gapMatrixHtml(dayFilter, all);
+
     dayIds.forEach(function(dayId){
-      html += "<h2>"+esc(dayLabel(dayId))+"</h2>";
+      html += '<h2 id="rep-'+esc(dayId)+'">'+esc(dayLabel(dayId))+"</h2>";
       var siteIds = Object.keys(byDay[dayId]).sort(function(a,b){return siteName(a).localeCompare(siteName(b));});
       siteIds.forEach(function(siteId){
         var entries = byDay[dayId][siteId];
@@ -1733,20 +1807,10 @@
       });
     });
 
-    var daysToCheck = dayFilter==="all" ? DAYS : [findDay(dayFilter)];
-    var flags = [];
-    daysToCheck.forEach(function(d){
-      if(!d) return;
-      sitesForDay(d.id).forEach(function(s){
-        var siteEntries = all.filter(function(e){return e.site===s.id;});
-        CAT_ORDER.forEach(function(cid){
-          var has = siteEntries.some(function(e){return e.catId===cid;});
-          if(!has) flags.push(d.label+" · "+s.name+" — no "+CATEGORIES[cid].label.toLowerCase());
-        });
-      });
+    html += '<h2 id="rep-people">Contributors</h2>';
+    contributors.sort(function(a,b){ return personCounts[b]-personCounts[a]; }).forEach(function(author){
+      html += personSectionHtml(author, all.filter(function(e){return e.author===author;}));
     });
-    html += "<h2>Coverage gaps</h2>";
-    html += flags.length ? flags.map(function(f){return '<div class="report-gap">⚠ '+esc(f)+"</div>";}).join("") : '<p class="muted">No coverage gaps in this scope.</p>';
 
     html += '<h2>Methodology notes</h2><ul class="report-quote-list">'+
       "<li>Crowd counts combine manual 60-second tallies and a manual tap-and-lap counter; density ratings are observer judgment on a 1–5 scale.</li>"+

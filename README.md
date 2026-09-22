@@ -45,7 +45,7 @@ There's no traditional backend to maintain — Firestore (Firebase's document da
 
 The team decided interview/survey responses (Business, Staff, Tourist tracks) should move to Google Forms instead of the app's own Intercept Survey — Forms enforce required fields (no missing data) and give a cleaner consent trail for the human-subjects side of the research, as opposed to the purely observational data (counts, signage, etc.) which stays in the app.
 
-`scripts/generate-survey-forms.gs` is a Google Apps Script that creates all three forms (with a verbal-consent gate, the same bilingual EN/JA questions the app already asks, and required-field validation), links each to its own response spreadsheet, and files everything into the `DHDE Build` Drive folder. Run it once from script.google.com — see the comment block at the top of the file for exact steps. The consent wording is a draft, not yet ethics-reviewed — get it signed off before field use, and have a Japanese speaker check the translations.
+`scripts/generate-survey-forms.gs` is a Google Apps Script that creates all three forms (with a verbal-consent gate, the same bilingual EN/JA questions the app already asks, and required-field validation), links each to its own response spreadsheet, and files everything into the `Research` folder (inside `Sakura - Team Folder`). Run it once from script.google.com — see the comment block at the top of the file for exact steps. The consent wording is a draft, not yet ethics-reviewed — get it signed off before field use, and have a Japanese speaker check the translations.
 
 Once the three forms are live, their links can be added to the app (a later update) so the team can jump straight from "Intercept Survey" to the right form.
 

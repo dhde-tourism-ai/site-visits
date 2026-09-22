@@ -5,8 +5,8 @@
  * each starting with a verbal-consent gate, matching the app's exact
  * bilingual (EN/JA) question set, with required-field validation so nothing
  * comes back incomplete. Each form's responses land in their own linked
- * Google Sheet. Everything (forms + sheets) is moved into the DHDE Build
- * Drive folder automatically.
+ * Google Sheet. Everything (forms + sheets) is moved into the Research
+ * folder (inside Sakura - Team Folder) automatically.
  *
  * HOW TO RUN:
  *   1. Go to https://script.google.com -> New project.
@@ -31,7 +31,7 @@
  *     by an AI assistant, not a native reviewer.
  */
 
-var TEAM_FOLDER_ID = "1UETJpjUt3dyF4s6jum4OKO0ZdlogycNN"; // "DHDE Build" in "Sakura - Team Folder"
+var TEAM_FOLDER_ID = "1Kwg8cFmt49GgcHo-R9ASuWoZfa9SYNvo"; // "Research" folder in "Sakura - Team Folder"
 
 var SITES = [
   "21 Sep — Dotonbori & Namba (Osaka)",

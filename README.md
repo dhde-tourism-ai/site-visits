@@ -47,6 +47,8 @@ The team decided interview/survey responses (Business, Staff, Tourist tracks) sh
 
 `scripts/generate-survey-forms.gs` is a Google Apps Script that creates all three forms (with a verbal-consent gate, the same bilingual EN/JA questions the app already asks, and required-field validation), links each to its own response spreadsheet, and files everything into the `Research` folder (inside `Sakura - Team Folder`). Run it once from script.google.com — see the comment block at the top of the file for exact steps. The consent wording is a draft, not yet ethics-reviewed — get it signed off before field use, and have a Japanese speaker check the translations.
 
+Creating the forms doesn't pull in survey/photo data collected through the app *before* the switch — Forms only record what's submitted through them directly. `scripts/backfill-firestore-to-forms.gs` is a second, one-time script that does that move: it reads straight from Firestore's public REST API and writes directly into the response sheets and the `Research/Photos` Drive folder, entirely within Google's own infrastructure (the photos especially are far too large to usefully pass through a chat conversation). Add it as a second file in the same Apps Script project and run `backfillAll` once — see its own comment block for details.
+
 Once the three forms are live, their links can be added to the app (a later update) so the team can jump straight from "Intercept Survey" to the right form.
 
 ### Firestore setup (done)

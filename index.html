@@ -144,6 +144,37 @@
   .log-sitegroup{margin:10px 0 0 4px; padding-left:10px; border-left:2px solid var(--line);}
   .log-sitetitle{font-weight:700; font-size:13px; color:var(--ink); margin-bottom:2px;}
   .entry-meta button{background:none; border:none; color:var(--accent); font-weight:700; font-size:12px; cursor:pointer; padding:0;}
+  .log-toolbar{display:flex; align-items:center; justify-content:space-between; margin:0 0 10px;}
+  .detail-toggle{background:none; border:none; color:var(--accent); font-weight:700; font-size:12px; cursor:pointer; padding:0; margin-top:6px;}
+  .entry-detail{margin-top:8px; padding-top:8px; border-top:1px dashed var(--line); display:flex; flex-direction:column; gap:4px;}
+  .detail-row{display:grid; grid-template-columns:auto 1fr; gap:10px; font-size:12.5px;}
+  .detail-label{color:var(--ink-soft); font-weight:600;}
+  .detail-value{color:var(--ink);}
+
+  /* report overlay */
+  .report-overlay{position:fixed; inset:0; z-index:110; background:var(--bg); display:flex; flex-direction:column; overflow:hidden;}
+  .report-toolbar{display:flex; gap:8px; align-items:center; padding:calc(env(safe-area-inset-top,0px) + 10px) 16px 10px; border-bottom:1px solid var(--line); background:var(--surface); flex:none;}
+  .report-toolbar b{flex:1; font-family:var(--font-display); font-size:15px;}
+  .report-body{flex:1; overflow-y:auto; padding:20px 20px calc(env(safe-area-inset-bottom,0px) + 30px); max-width:760px; margin:0 auto; width:100%;}
+  .report-body h1{font-size:22px; margin-bottom:4px;}
+  .report-body h2{font-size:16px; margin:26px 0 4px; padding-bottom:6px; border-bottom:2px solid var(--accent); color:var(--accent);}
+  .report-body h3{font-size:14px; margin:16px 0 6px;}
+  .report-meta{color:var(--ink-soft); font-size:12.5px; margin-bottom:18px;}
+  .report-stat-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:10px; margin:10px 0;}
+  .report-stat{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:10px; text-align:center;}
+  .report-stat .v{font-family:var(--font-mono); font-size:19px; font-weight:700;}
+  .report-stat .l{font-size:10px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.03em; margin-top:2px;}
+  .report-table{width:100%; border-collapse:collapse; font-size:12.5px; margin:8px 0 4px;}
+  .report-table th{text-align:left; color:var(--ink-soft); font-weight:600; padding:4px 8px 4px 0; border-bottom:1px solid var(--line);}
+  .report-table td{padding:5px 8px 5px 0; border-bottom:1px solid var(--line); vertical-align:top;}
+  .report-quote-list{margin:6px 0; padding-left:18px; font-size:12.5px; color:var(--ink);}
+  .report-quote-list li{margin-bottom:4px;}
+  .report-gap{color:var(--critical); font-size:12.5px; margin-bottom:3px;}
+  @media print{
+    .report-toolbar{display:none;}
+    .report-overlay{position:static; background:#fff; color:#000;}
+    .report-body{overflow:visible; max-width:none;}
+  }
   .entry img.thumb{margin-top:8px; max-height:160px; border-radius:8px; border:1px solid var(--line);}
   .entry audio{margin-top:8px; width:100%;}
   .backup-note{background:color-mix(in srgb, var(--warn) 16%, transparent); border:1px solid var(--warn); border-radius:10px; padding:10px 12px; font-size:12.5px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; gap:10px;}
@@ -308,6 +339,10 @@
           <button class="btn ghost block" id="importBtn" style="margin-top:8px;">Merge into log</button>
         </details>
       </div>
+      <div class="log-toolbar">
+        <span class="muted" id="logCount"></span>
+        <button class="btn ghost" id="expandAllBtn" style="padding:6px 12px; font-size:12px;">Expand all</button>
+      </div>
       <div class="card" id="logList"></div>
     </section>
 
@@ -327,6 +362,11 @@
         <h2>Who's logged what</h2>
         <p class="muted" style="margin-bottom:4px;">Tap a name to see just their entries in the Log tab.</p>
         <div id="personList"></div>
+      </div>
+      <div class="card">
+        <h2>Report</h2>
+        <p class="muted" style="margin:6px 0 10px;">A formatted summary of everything in the day scope selected above — averages, counts, distributions, and gap flags. Opens full-screen; print it to PDF or download as Markdown.</p>
+        <button class="btn block" id="generateReport">Generate report</button>
       </div>
       <div class="card">
         <p class="muted"><b style="color:var(--ink);">Local device only.</b> This reflects entries on this phone plus anything you've merged in. Merge everyone's exports before reading it as the full picture.</p>
@@ -1458,13 +1498,47 @@
     return "dhde_"+slug(entry.day)+"_"+slug(entry.site)+"_"+slug(label)+".jpg";
   }
 
+  function personTypeLabel(id){ var t = SURVEY_TYPES.filter(function(x){return x.id===id;})[0]; return t ? t.en : id; }
+
+  function describeEntry(e){
+    var d = e.data || {}; var out = [];
+    var cat = CATEGORIES[e.catId];
+    if(cat && cat.fields){
+      cat.fields.forEach(function(f){
+        if(f.type==="photo") return;
+        var v = d[f.id];
+        if(v==null || v==="") return;
+        if(Array.isArray(v)){ if(v.length===0) return; v = v.join(", "); }
+        out.push({label: f.label, value: String(v)});
+      });
+    } else if(e.catId==="survey"){
+      var type = d.personType;
+      out.push({label:"Talking to", value: personTypeLabel(type)});
+      (SURVEY_INTRO[type]||[]).forEach(function(f){
+        if(f.type==="photo") return;
+        var v = d[f.id]; if(v==null || v==="") return;
+        out.push({label:f.label, value:String(v)});
+      });
+      (SURVEY_QUESTIONS[type]||[]).forEach(function(q){
+        var v = d[q.id]; if(v==null || v==="") return;
+        if(Array.isArray(v)){ if(v.length===0) return; v = v.join(", "); }
+        out.push({label:q.en, value:String(v)});
+      });
+    }
+    return out;
+  }
+
   function entryHtml(e){
     var cat = catInfo(e.catId);
     var photo = e.localPhoto ? '<img class="thumb" src="'+e.localPhoto+'"><div><a class="btn ghost" style="display:inline-block; margin-top:6px; padding:6px 12px; font-size:12px;" download="'+esc(photoFilename(e))+'" href="'+e.localPhoto+'">Save photo</a></div>' : "";
     var audio = e.audioNote ? '<audio controls src="'+e.audioNote+'"></audio>' : "";
+    var details = describeEntry(e);
+    var detailHtml = details.length ? '<button type="button" class="detail-toggle">Show details ▾</button><div class="entry-detail" hidden>'+
+      details.map(function(r){ return '<div class="detail-row"><span class="detail-label">'+esc(r.label)+'</span><span class="detail-value">'+esc(r.value)+'</span></div>'; }).join("")+
+      "</div>" : "";
     return '<div class="entry"><div class="entry-top"><div class="entry-tags"><span class="entry-cat" style="background:'+cat.color+'">'+esc(cat.label)+'</span></div><span class="entry-time">'+fmtTime(e.ts)+"</span></div>"+
       '<div class="entry-summary">'+esc(summaryLine(e))+"</div>"+
-      '<div class="entry-meta"><span>'+esc(e.author)+"</span></div>"+photo+audio+"</div>";
+      '<div class="entry-meta"><span>'+esc(e.author)+"</span></div>"+detailHtml+photo+audio+"</div>";
   }
 
   function renderLog(){
@@ -1476,6 +1550,8 @@
 
     var list = filteredEntries(state.logFilterDay, state.logFilterSite, state.logFilterAuthor);
     var el = document.getElementById("logList");
+    document.getElementById("logCount").textContent = list.length+" entr"+(list.length===1?"y":"ies")+" shown";
+    document.getElementById("expandAllBtn").textContent = "Expand all";
     if(list.length===0){ el.innerHTML = '<p class="muted">No entries yet — log something from the Survey tab.</p>'; return; }
 
     // group by day, then site, so it's scannable rather than one long mixed feed
@@ -1545,6 +1621,160 @@
   });
 
   /* ---------------- dashboard tab ---------------- */
+  /* ---------------- report generation ---------------- */
+  function avgOf(nums){ nums = nums.filter(function(n){return typeof n==="number" && !isNaN(n);}); if(!nums.length) return null; return nums.reduce(function(a,b){return a+b;},0)/nums.length; }
+  function countBy(arr, keyFn){ var m={}; arr.forEach(function(x){ var k=keyFn(x); if(k==null||k==="") return; m[k]=(m[k]||0)+1; }); return m; }
+  function statTile(v,l){ return '<div class="report-stat"><div class="v">'+esc(v)+'</div><div class="l">'+esc(l)+"</div></div>"; }
+  function countTableHtml(counts, total, labelHeader){
+    var rows = Object.keys(counts).sort(function(a,b){return counts[b]-counts[a];});
+    if(!rows.length) return "";
+    return '<table class="report-table"><tr><th>'+esc(labelHeader||"Value")+'</th><th>Count</th></tr>'+
+      rows.map(function(k){ return "<tr><td>"+esc(k)+"</td><td>"+counts[k]+(total?" ("+Math.round(counts[k]/total*100)+"%)":"")+"</td></tr>"; }).join("")+
+    "</table>";
+  }
+  function summarizeCategoryHtml(catId, entries){
+    var n = entries.length, html = "";
+    if(catId==="count"){
+      var densities = entries.map(function(e){return Number(e.data.density);});
+      var tallies = entries.map(function(e){return Number(e.data.tally);}).filter(function(x){return !isNaN(x);});
+      var flowCounts = countBy(entries, function(e){return e.data.flow;});
+      var avgD = avgOf(densities), avgT = avgOf(tallies);
+      html = '<div class="report-stat-grid">'+statTile(n,"Tallies")+statTile(avgD!=null?avgD.toFixed(1)+"/5":"—","Avg density")+statTile(avgT!=null?Math.round(avgT):"—","Avg 60s count")+"</div>";
+      html += countTableHtml(flowCounts, n, "Flow pattern");
+    } else if(catId==="flow"){
+      var sevs = entries.map(function(e){return Number(e.data.severity);});
+      var causeCounts = countBy(entries, function(e){return e.data.cause;});
+      var avgS = avgOf(sevs);
+      html = '<div class="report-stat-grid">'+statTile(n,"Bottlenecks")+statTile(avgS!=null?avgS.toFixed(1)+"/5":"—","Avg severity")+"</div>";
+      html += countTableHtml(causeCounts, n, "Cause");
+      var fixes = entries.map(function(e){return e.data.fix;}).filter(Boolean).slice(0,8);
+      if(fixes.length) html += '<h3>Suggested fixes</h3><ul class="report-quote-list">'+fixes.map(function(f){return "<li>"+esc(f)+"</li>";}).join("")+"</ul>";
+    } else if(catId==="lang"){
+      var quals = entries.map(function(e){return Number(e.data.quality);});
+      var langCounts = {};
+      entries.forEach(function(e){ (e.data.languages||[]).forEach(function(l){ langCounts[l]=(langCounts[l]||0)+1; }); });
+      var avgQ = avgOf(quals);
+      html = '<div class="report-stat-grid">'+statTile(n,"Locations audited")+statTile(avgQ!=null?avgQ.toFixed(1)+"/5":"—","Avg quality")+"</div>";
+      html += countTableHtml(langCounts, n, "Language present");
+      var gaps = entries.map(function(e){return e.data.gap;}).filter(Boolean).slice(0,6);
+      if(gaps.length) html += '<h3>Gaps noted</h3><ul class="report-quote-list">'+gaps.map(function(g){return "<li>"+esc(g)+"</li>";}).join("")+"</ul>";
+    } else if(catId==="rest"){
+      html = '<div class="report-stat-grid">'+statTile(n,"Locations checked")+"</div>"+countTableHtml(countBy(entries, function(e){return e.data.type;}), n, "Type found");
+    } else if(catId==="food"){
+      var mlYes = entries.filter(function(e){return e.data.multilingualMenu==="yes";}).length;
+      var dietYes = entries.filter(function(e){return e.data.dietary==="yes";}).length;
+      html = '<div class="report-stat-grid">'+statTile(n,"Venues logged")+statTile(n?Math.round(mlYes/n*100)+"%":"—","Multilingual menu")+statTile(n?Math.round(dietYes/n*100)+"%":"—","Dietary info visible")+"</div>";
+      html += countTableHtml(countBy(entries, function(e){return e.data.category;}), n, "Category");
+    } else if(catId==="spot"){
+      var durs = entries.map(function(e){return Number(e.data.durationSec);});
+      var peaks = entries.map(function(e){return Number(e.data.peakCount);});
+      var avgDur = avgOf(durs), avgPeak = avgOf(peaks);
+      html = '<div class="report-stat-grid">'+statTile(n,"Sessions")+statTile(avgDur!=null?fmtDur(Math.round(avgDur)):"—","Avg dwell")+statTile(avgPeak!=null?avgPeak.toFixed(1):"—","Avg peak headcount")+"</div>";
+    } else if(catId==="photo"){
+      html = '<div class="report-stat-grid">'+statTile(n,"Photos logged")+"</div>";
+    } else if(catId==="survey"){
+      var byType = {business:[], staff:[], tourist:[]};
+      entries.forEach(function(e){ var t=e.data.personType; if(byType[t]) byType[t].push(e); });
+      if(byType.business.length){
+        html += "<h3>Business / Shop Owner ("+byType.business.length+")</h3>";
+        SURVEY_QUESTIONS.business.forEach(function(q){
+          if(q.type==="open") return;
+          var counts = {};
+          byType.business.forEach(function(e){
+            var v = e.data[q.id];
+            (Array.isArray(v)?v:[v]).forEach(function(x){ if(x) counts[x]=(counts[x]||0)+1; });
+          });
+          var t = countTableHtml(counts, byType.business.length);
+          if(t) html += "<h4 style='font-size:12.5px;margin:10px 0 4px;'>"+esc(q.en)+"</h4>"+t;
+        });
+        var pains = byType.business.map(function(e){return e.data.q7_painpoint;}).filter(Boolean).slice(0,8);
+        if(pains.length) html += '<h3>Biggest challenges cited</h3><ul class="report-quote-list">'+pains.map(function(p){return "<li>"+esc(p)+"</li>";}).join("")+"</ul>";
+      }
+      ["staff","tourist"].forEach(function(type){
+        if(!byType[type].length) return;
+        html += "<h3>"+(type==="staff"?"Staff":"Tourist / Visitor")+" ("+byType[type].length+")</h3>";
+        SURVEY_QUESTIONS[type].forEach(function(q){
+          var answers = byType[type].map(function(e){return e.data[q.id];}).filter(Boolean).slice(0,6);
+          if(answers.length) html += "<h4 style='font-size:12.5px;margin:10px 0 4px;'>"+esc(q.en)+"</h4><ul class='report-quote-list'>"+answers.map(function(a){return "<li>"+esc(a)+"</li>";}).join("")+"</ul>";
+        });
+      });
+    }
+    return html;
+  }
+
+  function buildReportHtml(dayFilter){
+    var all = filteredEntries(dayFilter, "all", null);
+    var scopeLabel = dayFilter==="all" ? "All days" : dayLabel(dayFilter);
+    var byDay = {};
+    all.forEach(function(e){ byDay[e.day]=byDay[e.day]||{}; byDay[e.day][e.site]=byDay[e.day][e.site]||[]; byDay[e.day][e.site].push(e); });
+    var dayIds = Object.keys(byDay).sort(function(a,b){ var da=findDay(a), db_=findDay(b); return (da?da.date:a).localeCompare(db_?db_.date:b); });
+    var contributors = new Set(all.map(function(e){return e.author;}));
+    var siteCount = new Set(all.map(function(e){return e.site;})).size;
+
+    var html = "<h1>DHDE Field Survey Report</h1>"+
+      '<div class="report-meta">Scope: '+esc(scopeLabel)+" · Generated "+esc(new Date().toLocaleString())+" by "+esc(state.identity||"—")+"</div>"+
+      '<div class="report-stat-grid">'+statTile(all.length,"Total entries")+statTile(contributors.size,"Contributors")+statTile(siteCount,"Sites covered")+statTile(dayIds.length,"Days covered")+"</div>";
+
+    if(all.length===0){ html += '<p class="muted">No entries in this scope yet.</p>'; return html; }
+
+    dayIds.forEach(function(dayId){
+      html += "<h2>"+esc(dayLabel(dayId))+"</h2>";
+      var siteIds = Object.keys(byDay[dayId]).sort(function(a,b){return siteName(a).localeCompare(siteName(b));});
+      siteIds.forEach(function(siteId){
+        var entries = byDay[dayId][siteId];
+        html += "<h3 style='font-size:15px;'>"+esc(siteName(siteId))+" — "+entries.length+" entries</h3>";
+        var byCat = {};
+        entries.forEach(function(e){ byCat[e.catId]=byCat[e.catId]||[]; byCat[e.catId].push(e); });
+        CAT_ORDER.forEach(function(catId){
+          if(!byCat[catId]) return;
+          html += "<h4 style='margin:12px 0 4px; color:var(--ink-soft); text-transform:uppercase; font-size:11px; letter-spacing:.04em;'>"+esc(CATEGORIES[catId].label)+"</h4>";
+          html += summarizeCategoryHtml(catId, byCat[catId]);
+        });
+      });
+    });
+
+    var daysToCheck = dayFilter==="all" ? DAYS : [findDay(dayFilter)];
+    var flags = [];
+    daysToCheck.forEach(function(d){
+      if(!d) return;
+      sitesForDay(d.id).forEach(function(s){
+        var siteEntries = all.filter(function(e){return e.site===s.id;});
+        CAT_ORDER.forEach(function(cid){
+          var has = siteEntries.some(function(e){return e.catId===cid;});
+          if(!has) flags.push(d.label+" · "+s.name+" — no "+CATEGORIES[cid].label.toLowerCase());
+        });
+      });
+    });
+    html += "<h2>Coverage gaps</h2>";
+    html += flags.length ? flags.map(function(f){return '<div class="report-gap">⚠ '+esc(f)+"</div>";}).join("") : '<p class="muted">No coverage gaps in this scope.</p>';
+
+    html += '<h2>Methodology notes</h2><ul class="report-quote-list">'+
+      "<li>Crowd counts combine manual 60-second tallies and a manual tap-and-lap counter; density ratings are observer judgment on a 1–5 scale.</li>"+
+      "<li>Spot Tracker dwell times and peak headcounts are on-device computer-vision estimates (TensorFlow.js / coco-ssd), not a calibrated sensor.</li>"+
+      "<li>Survey responses are self-reported by the interviewee via the field team, not independently verified.</li>"+
+    "</ul>";
+    return html;
+  }
+
+  function openReport(dayFilter){
+    var overlay = document.createElement("div");
+    overlay.className = "report-overlay";
+    overlay.innerHTML =
+      '<div class="report-toolbar"><b>Report</b>'+
+      '<button class="btn ghost" id="reportPrint" style="padding:8px 12px;font-size:12px;">Print / Save PDF</button>'+
+      '<button class="btn ghost" id="reportText" style="padding:8px 12px;font-size:12px;">Download text</button>'+
+      '<button class="btn" id="reportClose" style="padding:8px 12px;font-size:12px;">Close</button></div>'+
+      '<div class="report-body">'+buildReportHtml(dayFilter)+"</div>";
+    document.body.appendChild(overlay);
+    overlay.querySelector("#reportClose").addEventListener("click", function(){ overlay.remove(); });
+    overlay.querySelector("#reportPrint").addEventListener("click", function(){ window.print(); });
+    overlay.querySelector("#reportText").addEventListener("click", function(){
+      var text = overlay.querySelector(".report-body").innerText;
+      downloadFile("dhde-report-"+slug(dayFilter)+"-"+slug(new Date().toISOString().slice(0,10))+".txt", text, "text/plain");
+    });
+  }
+  document.getElementById("generateReport").addEventListener("click", function(){ openReport(state.dashFilterDay); });
+
   function renderDash(){
     if(state.tab!=="dash") return;
     var dayEl = document.getElementById("dashDayFilters");
@@ -1600,6 +1830,20 @@
     });
   }
 
+  document.getElementById("logList").addEventListener("click", function(e){
+    var btn = e.target.closest(".detail-toggle");
+    if(!btn) return;
+    var detail = btn.nextElementSibling;
+    detail.hidden = !detail.hidden;
+    btn.textContent = detail.hidden ? "Show details ▾" : "Hide details ▴";
+  });
+  document.getElementById("expandAllBtn").addEventListener("click", function(){
+    var allDetails = document.querySelectorAll("#logList .entry-detail");
+    var anyHidden = Array.prototype.some.call(allDetails, function(d){ return d.hidden; });
+    allDetails.forEach(function(d){ d.hidden = !anyHidden; });
+    document.querySelectorAll("#logList .detail-toggle").forEach(function(b){ b.textContent = anyHidden ? "Hide details ▴" : "Show details ▾"; });
+    document.getElementById("expandAllBtn").textContent = anyHidden ? "Collapse all" : "Expand all";
+  });
   document.getElementById("addSiteTrigger").addEventListener("click", function(){
     var row = document.getElementById("addSiteRow");
     row.hidden = !row.hidden;

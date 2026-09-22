@@ -49,6 +49,8 @@ The team decided interview/survey responses (Business, Staff, Tourist tracks) sh
 
 Creating the forms doesn't pull in survey/photo data collected through the app *before* the switch — Forms only record what's submitted through them directly. `scripts/backfill-firestore-to-forms.gs` is a second, one-time script that does that move: it reads straight from Firestore's public REST API and writes directly into the response sheets and the `Research/Photos` Drive folder, entirely within Google's own infrastructure (the photos especially are far too large to usefully pass through a chat conversation). Add it as a second file in the same Apps Script project and run `backfillAll` once — see its own comment block for details.
 
+No photo lands in Drive without a label: each one gets a human-readable filename (site, category, date, photographer — not a code), a file description with a real caption pulled from whatever the field team wrote for that entry (the signage gap noted, the bottleneck's cause, the business name, etc.), and a row in a new **"DHDE Field Photos — Index"** sheet in the `Research` folder listing every photo with its date/day/site/category/author/caption and a direct Drive link. Any photo tied to a survey entry is also linked into that entry's row on the relevant response sheet via a "Photo Link" column.
+
 Once the three forms are live, their links can be added to the app (a later update) so the team can jump straight from "Intercept Survey" to the right form.
 
 ### Firestore setup (done)

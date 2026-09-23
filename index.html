@@ -934,7 +934,7 @@
     var camLabel = f.cam==="dwell" ? "Time a group" : "Manual tally";
     var camBtn = f.cam ? ' <button type="button" class="btn secondary" data-camfor="'+id+'" data-cammode="'+f.cam+'" style="margin-left:6px; padding:6px 10px; font-size:11.5px;">'+camLabel+'</button>' : "";
     if(f.type==="text") return '<div class="field"><label for="'+id+'">'+esc(f.label)+reqMark+(f.ja?'<span class="ja">'+esc(f.ja)+'</span>':'')+'</label><input type="text" id="'+id+'" placeholder="'+esc(f.ph||"")+'"></div>';
-    if(f.type==="number") return '<div class="field"><label for="'+id+'">'+esc(f.label)+reqMark+camBtn+'</label><input type="number" inputmode="numeric" id="'+id+'"></div>';
+    if(f.type==="number") return '<div class="field"><label for="'+id+'">'+esc(f.label)+reqMark+camBtn+'</label><input type="number" inputmode="decimal" step="any" id="'+id+'"></div>';
     if(f.type==="textarea") return '<div class="field"><label for="'+id+'">'+esc(f.label)+reqMark+'</label><textarea id="'+id+'" placeholder="'+esc(f.ph||"")+'"></textarea></div>';
     if(f.type==="select"){
       var opts = '<option value="">Select…</option>'+f.options.map(function(o){return '<option value="'+esc(o)+'">'+esc(o)+"</option>";}).join("");
@@ -960,7 +960,7 @@
     var row = document.createElement("div");
     row.className = "line-row";
     var idx = listEl.children.length + 1;
-    row.innerHTML = '<span class="line-num">Line '+idx+'</span><input type="number" inputmode="numeric" class="line-input" placeholder="people"><button type="button" class="line-remove">×</button>';
+    row.innerHTML = '<span class="line-num">Line '+idx+'</span><input type="number" inputmode="decimal" step="any" class="line-input" placeholder="people"><button type="button" class="line-remove">×</button>';
     listEl.appendChild(row);
     row.querySelector(".line-input").addEventListener("input", function(){ updateLinesTotal(listEl); });
     row.querySelector(".line-remove").addEventListener("click", function(){

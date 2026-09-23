@@ -571,6 +571,8 @@
         {id:"tally", label:"60-second tally (headcount)", type:"number", req:true, cam:"flow"},
         {id:"density", label:"Density — 1 free flow → 5 jammed", type:"scale5", req:true},
         {id:"flow", label:"Flow pattern", type:"select", req:true, options:["One-way","Two-way","Crossing / merging","Static crowd (no flow)"]},
+        {id:"inflow", label:"Inflow — people IN (optional, filled by Manual tally)", type:"number"},
+        {id:"outflow", label:"Outflow — people OUT (optional, filled by Manual tally)", type:"number"},
         {id:"occupancyCount", label:"People in the area right now (optional)", type:"number"},
         {id:"dwellMinutes", label:"Group dwell time in minutes (optional)", type:"number", cam:"dwell"},
         {id:"lines", label:"Queues / lines (optional)", type:"lines"},
@@ -653,6 +655,11 @@
       ]}
   };
   var CAT_ORDER = ["count","flow","lang","rest","food","survey","photo","spot","notes"];
+  // "occupancy" was folded into Crowd Count; it's no longer offered as a tab,
+  // but entries logged before the merge still need to show up in Log/Report.
+  function catOrderFor(entries){
+    return entries.some(function(e){ return e.catId==="occupancy"; }) ? CAT_ORDER.concat(["occupancy"]) : CAT_ORDER;
+  }
 
   var SURVEY_TYPES = [
     {id:"business", en:"Business / Shop Owner", ja:"店舗・事業者"},
@@ -1096,8 +1103,7 @@
         inp._file = file;
       });
     }
-    var camBtn = card.querySelector("[data-camfor]");
-    if(camBtn){
+    card.querySelectorAll("[data-camfor]").forEach(function(camBtn){
       camBtn.addEventListener("click", function(){
         var mode = camBtn.getAttribute("data-cammode");
         var target = document.getElementById(camBtn.getAttribute("data-camfor"));
@@ -1110,6 +1116,9 @@
         }
         openFlowCamera(function(result){
           if(target){ target.value = result.crossings; }
+          var inEl = document.getElementById("f_inflow"), outEl = document.getElementById("f_outflow");
+          if(inEl) inEl.value = result.inCount;
+          if(outEl) outEl.value = result.outCount;
           var notesEl = document.getElementById("f_notes");
           if(notesEl && !notesEl.value.trim()){
             notesEl.value = "Manual tally: "+result.crossings+" total ("+result.inCount+" in / "+result.outCount+" out, net "+result.net+") in "+result.durationSec+"s.";
@@ -1117,7 +1126,7 @@
           toast("Filled tally: "+result.crossings+" ("+result.inCount+" in / "+result.outCount+" out)");
         });
       });
-    }
+    });
     if(isSpot){
       document.getElementById("startSpot").addEventListener("click", function(){
         var labelInput = document.getElementById("f_spotLabel");
@@ -1654,6 +1663,7 @@
     switch(entry.catId){
       case "count": {
         var extras = [];
+        if((d.inflow!=null && d.inflow!=="") || (d.outflow!=null && d.outflow!=="")) extras.push("in "+(d.inflow!=null?d.inflow:0)+" / out "+(d.outflow!=null?d.outflow:0));
         if(d.occupancyCount!=null && d.occupancyCount!=="") extras.push(d.occupancyCount+" people now");
         if(d.dwellMinutes) extras.push(d.dwellMinutes+" min dwell");
         if(d.lines && d.lines.length) extras.push(d.lines.length+" line(s), "+d.lines.reduce(function(a,b){return a+b;},0)+" total");
@@ -1817,6 +1827,7 @@
 
   /* ---------------- dashboard tab ---------------- */
   /* ---------------- report generation ---------------- */
+  function numsOf(entries, key){ return entries.map(function(e){ return e.data[key]; }).filter(function(v){ return v!=null && v!==""; }).map(Number).filter(function(x){ return !isNaN(x); }); }
   function avgOf(nums){ nums = nums.filter(function(n){return typeof n==="number" && !isNaN(n);}); if(!nums.length) return null; return nums.reduce(function(a,b){return a+b;},0)/nums.length; }
   function countBy(arr, keyFn){ var m={}; arr.forEach(function(x){ var k=keyFn(x); if(k==null||k==="") return; m[k]=(m[k]||0)+1; }); return m; }
   function statTile(v,l){ return '<div class="report-stat"><div class="v">'+esc(v)+'</div><div class="l">'+esc(l)+"</div></div>"; }
@@ -1836,10 +1847,15 @@
       var avgD = avgOf(densities), avgT = avgOf(tallies);
       html = '<div class="report-stat-grid">'+statTile(n,"Tallies")+statTile(avgD!=null?avgD.toFixed(1)+"/5":"—","Avg density")+statTile(avgT!=null?Math.round(avgT):"—","Avg 60s count")+"</div>";
       html += countTableHtml(flowCounts, n, "Flow pattern");
-      var occ2 = entries.map(function(e){return Number(e.data.occupancyCount);}).filter(function(x){return !isNaN(x);});
-      var dwell2 = entries.map(function(e){return Number(e.data.dwellMinutes);}).filter(function(x){return !isNaN(x);});
+      var occ2 = numsOf(entries, "occupancyCount");
+      var dwell2 = numsOf(entries, "dwellMinutes");
       var totalLines2 = 0, totalPeopleInLines2 = 0;
       entries.forEach(function(e){ (e.data.lines||[]).forEach(function(v){ totalLines2++; totalPeopleInLines2 += v; }); });
+      var in2 = numsOf(entries, "inflow"), out2 = numsOf(entries, "outflow");
+      if(in2.length || out2.length){
+        var sumIn = in2.reduce(function(a,b){return a+b;},0), sumOut = out2.reduce(function(a,b){return a+b;},0);
+        html += '<div class="report-stat-grid" style="margin-top:8px;">'+statTile(sumIn,"Total inflow")+statTile(sumOut,"Total outflow")+statTile((sumIn-sumOut>0?"+":"")+(sumIn-sumOut),"Net flow")+"</div>";
+      }
       if(occ2.length || dwell2.length || totalLines2){
         html += '<div class="report-stat-grid" style="margin-top:8px;">'+
           (occ2.length?statTile(Math.round(avgOf(occ2)),"Avg occupancy"):"")+
@@ -1905,8 +1921,8 @@
         });
       });
     } else if(catId==="occupancy"){
-      var occ = entries.map(function(e){return Number(e.data.occupancyCount);}).filter(function(x){return !isNaN(x);});
-      var dwell = entries.map(function(e){return Number(e.data.dwellMinutes);}).filter(function(x){return !isNaN(x);});
+      var occ = numsOf(entries, "occupancyCount");
+      var dwell = numsOf(entries, "dwellMinutes");
       var totalLines = 0, totalPeopleInLines = 0;
       entries.forEach(function(e){ (e.data.lines||[]).forEach(function(v){ totalLines++; totalPeopleInLines += v; }); });
       html = '<div class="report-stat-grid">'+statTile(n,"Snapshots")+statTile(avgOf(occ)!=null?Math.round(avgOf(occ)):"—","Avg occupancy")+statTile(avgOf(dwell)!=null?avgOf(dwell).toFixed(1)+" min":"—","Avg group dwell")+statTile(totalLines,"Lines observed")+"</div>";
@@ -1991,7 +2007,7 @@
       ' · <a href="#rep-people">Contributors</a></p>';
 
     var catCounts = countBy(all, function(e){return e.catId;});
-    var catItems = CAT_ORDER.map(function(c){ return {label: CATEGORIES[c].label, value: catCounts[c]||0, color: CATEGORIES[c].color}; });
+    var catItems = catOrderFor(all).map(function(c){ return {label: CATEGORIES[c].label, value: catCounts[c]||0, color: CATEGORIES[c].color}; });
     var personCounts = countBy(all, function(e){return e.author;});
     var personItems = Object.keys(personCounts).sort(function(a,b){return personCounts[b]-personCounts[a];}).map(function(p){ return {label:p, value:personCounts[p], color:"var(--accent)"}; });
 
@@ -2009,7 +2025,7 @@
         html += "<h3 style='font-size:15px;'>"+esc(siteName(siteId))+" — "+entries.length+" entries</h3>";
         var byCat = {};
         entries.forEach(function(e){ byCat[e.catId]=byCat[e.catId]||[]; byCat[e.catId].push(e); });
-        CAT_ORDER.forEach(function(catId){
+        catOrderFor(entries).forEach(function(catId){
           if(!byCat[catId]) return;
           html += "<h4 style='margin:12px 0 4px; color:var(--ink-soft); text-transform:uppercase; font-size:11px; letter-spacing:.04em;'>"+esc(CATEGORIES[catId].label)+"</h4>";
           html += summarizeCategoryHtml(catId, byCat[catId]);
@@ -2065,7 +2081,7 @@
     document.getElementById("kpiGrid").innerHTML = kpis.map(function(k){ return '<div class="kpi"><div class="v">'+k.v+'</div><div class="l">'+esc(k.l)+"</div></div>"; }).join("");
 
     var maxCount = 1;
-    var counts = CAT_ORDER.map(function(id){ var n = all.filter(function(e){return e.catId===id;}).length; maxCount = Math.max(maxCount,n); return {id:id,n:n}; });
+    var counts = catOrderFor(all).map(function(id){ var n = all.filter(function(e){return e.catId===id;}).length; maxCount = Math.max(maxCount,n); return {id:id,n:n}; });
     document.getElementById("catBars").innerHTML = counts.map(function(c){
       var cat = CATEGORIES[c.id]; var pct = Math.round((c.n/maxCount)*100);
       return '<div class="bar-row"><div class="lbl">'+esc(cat.label)+'</div><div class="bar-track"><div class="bar-fill" style="width:'+pct+'%; background:'+cat.color+'"></div></div><div class="n">'+c.n+"</div></div>";

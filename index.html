@@ -264,6 +264,7 @@
   .tally-count{font-family:var(--font-mono); font-size:44px; font-weight:700; line-height:1;}
   .tally-meta{font-size:12px; color:#cfd6ea; margin-top:4px;}
   .tally-tap{padding:22px 0; font-size:17px; background:var(--accent);}
+  .tally-tap-out{padding:22px 0; font-size:17px; background:#3a3f52; color:#fff;}
 </style>
 </head>
 <body>
@@ -564,12 +565,15 @@
   /* ---------------- category definitions ---------------- */
   var CATEGORIES = {
     count:{label:"Crowd Count", color:"var(--cat-count)", blurb:"Quantify how packed each pinch point is, at fixed intervals, from a fixed vantage point.",
-      how:["Stand at a clear vantage point across the pinch point (corner, bridge, doorway).","Tally everyone crossing an imaginary line for 60 seconds; repeat at the start and end of your 15-minute block.","Or use Manual tally below — point your phone at the crossing line for reference and tap once per person; it also times the gap between each person for you.","Rate ambient density 1–5: 1 free walking pace, 3 shoulder-to-shoulder in patches, 5 shuffling, can't deviate.","Note the dominant flow direction and whether it's one-way, two-way, or crossing."],
+      how:["Stand at a clear vantage point across the pinch point (corner, bridge, doorway).","Tally everyone crossing an imaginary line for 60 seconds; repeat at the start and end of your 15-minute block.","Or use Manual tally below — tap IN/OUT once per person; the camera line is just an optional reference, not required.","Rate ambient density 1–5: 1 free walking pace, 3 shoulder-to-shoulder in patches, 5 shuffling, can't deviate.","Note the dominant flow direction and whether it's one-way, two-way, or crossing.","Occupancy, group dwell time, and queues below are optional — fill in whichever apply at this spot."],
       fields:[
         {id:"zone", label:"Zone / landmark", type:"text", req:true, ph:"e.g. Ebisu-bashi bridge, north side"},
         {id:"tally", label:"60-second tally (headcount)", type:"number", req:true, cam:"flow"},
         {id:"density", label:"Density — 1 free flow → 5 jammed", type:"scale5", req:true},
         {id:"flow", label:"Flow pattern", type:"select", req:true, options:["One-way","Two-way","Crossing / merging","Static crowd (no flow)"]},
+        {id:"occupancyCount", label:"People in the area right now (optional)", type:"number"},
+        {id:"dwellMinutes", label:"Group dwell time in minutes (optional)", type:"number", cam:"dwell"},
+        {id:"lines", label:"Queues / lines (optional)", type:"lines"},
         {id:"notes", label:"Notes", type:"textarea"}
       ]},
     flow:{label:"Bottlenecks & Flow", color:"var(--cat-flow)", blurb:"Find the physical cause of a jam, not just where it happens — this feeds the gap analysis.",
@@ -648,7 +652,7 @@
         {id:"photo", label:"Photo (optional)", type:"photo"}
       ]}
   };
-  var CAT_ORDER = ["count","occupancy","flow","lang","rest","food","survey","photo","spot","notes"];
+  var CAT_ORDER = ["count","flow","lang","rest","food","survey","photo","spot","notes"];
 
   var SURVEY_TYPES = [
     {id:"business", en:"Business / Shop Owner", ja:"店舗・事業者"},
@@ -1107,10 +1111,10 @@
         openFlowCamera(function(result){
           if(target){ target.value = result.crossings; }
           var notesEl = document.getElementById("f_notes");
-          if(notesEl && !notesEl.value.trim() && result.avgGapSec){
-            notesEl.value = "Manual tally: "+result.crossings+" people in "+result.durationSec+"s (avg gap "+result.avgGapSec+"s/person).";
+          if(notesEl && !notesEl.value.trim()){
+            notesEl.value = "Manual tally: "+result.crossings+" total ("+result.inCount+" in / "+result.outCount+" out, net "+result.net+") in "+result.durationSec+"s.";
           }
-          toast("Filled tally: "+result.crossings+" in "+result.durationSec+"s");
+          toast("Filled tally: "+result.crossings+" ("+result.inCount+" in / "+result.outCount+" out)");
         });
       });
     }
@@ -1367,24 +1371,35 @@
     // Manual tap-and-lap counter. Earlier versions tried to auto-count via
     // on-device object detection, but that wasn't reliable in real crowds —
     // a human tapping once per person is simpler and just correct. The
-    // camera + line stay only as a visual reference for where to point.
+    // camera + line are an OPTIONAL visual reference only — tapping works
+    // fully without ever requesting camera permission.
     var overlay = buildOverlay();
     var video = overlay.querySelector("#camVideo"), canvas = overlay.querySelector("#camCanvas"),
         stage = overlay.querySelector("#camStage"), statusEl = overlay.querySelector("#camStatus"),
         bottom = overlay.querySelector("#camBottom"), ctx = canvas.getContext("2d");
-    var closed = false, lineY = null;
-    var laps = [], startTs = null, uiTimer = null;
+    var closed = false, lineY = null, cameraOn = false;
+    var inCount = 0, outCount = 0, laps = [], startTs = null, uiTimer = null;
 
-    statusEl.textContent = "Starting camera…";
+    stage.style.display = "none";
+    statusEl.textContent = "Camera is optional — tap IN / OUT below without it, or add a reference line first.";
     bottom.innerHTML =
-      '<div class="tally-readout"><div class="tally-count" id="tallyCount">0</div><div class="tally-meta" id="tallyMeta">Tap once per person crossing the line</div></div>'+
-      '<button id="tapBtn" class="btn block tally-tap">TAP — person crossed</button>'+
+      '<button type="button" id="toggleCam" class="btn secondary block" style="margin-bottom:4px;">📷 Add camera reference line (optional)</button>'+
+      '<div class="tally-readout"><div class="tally-count" id="tallyCount">0</div><div class="tally-meta" id="tallyMeta">Tap IN or OUT for each person crossing</div></div>'+
+      '<div class="row2"><button id="tapOut" class="btn block tally-tap-out">◀ OUT</button><button id="tapIn" class="btn block tally-tap">IN ▶</button></div>'+
       '<div class="row2"><button id="undoTap" class="btn ghost">Undo last</button><button id="finishTally" class="btn ghost">Finish</button></div>'+
       '<div class="cam-sessions" id="lapList"></div>';
 
     function resize(){ positionCanvas(video, canvas, stage); if(lineY===null) lineY = video.videoHeight/2; draw(); }
-    startStream(video, statusEl, function(){ statusEl.textContent="Drag the line for reference, then tap for each person"; resize(); });
-    window.addEventListener("resize", resize);
+    function enableCamera(){
+      if(cameraOn) return;
+      cameraOn = true;
+      stage.style.display = "";
+      var t = overlay.querySelector("#toggleCam"); if(t) t.remove();
+      statusEl.textContent = "Starting camera…";
+      startStream(video, statusEl, function(){ statusEl.textContent="Drag the line for reference, then tap IN/OUT"; resize(); });
+      window.addEventListener("resize", resize);
+    }
+    overlay.querySelector("#toggleCam").addEventListener("click", enableCamera);
 
     function videoToCanvasY(y){ return canvas.height ? y*(canvas.height/video.videoHeight) : y; }
     function canvasToVideoY(y){ return video.videoHeight ? y*(video.videoHeight/canvas.height) : y; }
@@ -1418,32 +1433,35 @@
       var startIdx = laps.length - recent.length;
       var rows = recent.map(function(t, i){
         var globalIdx = startIdx + i + 1;
-        var gapText = globalIdx===1 ? "start" : "+"+((t - laps[startIdx+i-1])/1000).toFixed(1)+"s";
-        return globalIdx+". "+fmtTime(new Date(t).toISOString())+" ("+gapText+")";
+        var gapText = globalIdx===1 ? "start" : "+"+((t.ts - laps[startIdx+i-1].ts)/1000).toFixed(1)+"s";
+        return globalIdx+". "+(t.dir==="in"?"IN":"OUT")+" · "+fmtTime(new Date(t.ts).toISOString())+" ("+gapText+")";
       });
       el.innerHTML = rows.slice().reverse().join("<br>");
     }
     function updateReadout(){
-      document.getElementById("tallyCount").textContent = laps.length;
+      document.getElementById("tallyCount").textContent = inCount+outCount;
       var meta = document.getElementById("tallyMeta");
-      if(laps.length===0){ meta.textContent = "Tap once per person crossing the line"; }
+      if(laps.length===0){ meta.textContent = "Tap IN or OUT for each person crossing"; }
       else {
         var elapsedSec = Math.round((Date.now()-startTs)/1000);
-        var lastGap = laps.length>1 ? ((laps[laps.length-1]-laps[laps.length-2])/1000).toFixed(1)+"s" : "—";
-        meta.textContent = elapsedSec+"s elapsed · last gap "+lastGap;
+        meta.textContent = elapsedSec+"s elapsed · IN "+inCount+" · OUT "+outCount+" · net "+(inCount-outCount);
       }
       renderLapList();
     }
 
-    overlay.querySelector("#tapBtn").addEventListener("click", function(){
+    function tap(dir){
       var now = Date.now();
       if(startTs===null) startTs = now;
-      laps.push(now);
+      laps.push({ts:now, dir:dir});
+      if(dir==="in") inCount++; else outCount++;
       updateReadout();
-    });
+    }
+    overlay.querySelector("#tapIn").addEventListener("click", function(){ tap("in"); });
+    overlay.querySelector("#tapOut").addEventListener("click", function(){ tap("out"); });
     overlay.querySelector("#undoTap").addEventListener("click", function(){
       if(laps.length===0) return;
-      laps.pop();
+      var last = laps.pop();
+      if(last.dir==="in") inCount--; else outCount--;
       if(laps.length===0) startTs = null;
       updateReadout();
     });
@@ -1453,14 +1471,13 @@
     function finishTally(){
       clearInterval(uiTimer);
       var durationSec = startTs ? Math.max(1, Math.round((Date.now()-startTs)/1000)) : 0;
-      var count = laps.length;
-      var avgGap = count>1 ? ((laps[laps.length-1]-laps[0])/1000/(count-1)).toFixed(1) : null;
-      bottom.innerHTML = '<p class="cam-hint">'+count+' people in '+durationSec+'s'+(avgGap? " (avg gap "+avgGap+"s/person)":"")+'.</p>'+
+      var total = inCount+outCount, net = inCount-outCount;
+      bottom.innerHTML = '<p class="cam-hint">'+total+' crossings in '+durationSec+'s — IN '+inCount+', OUT '+outCount+', net '+net+'.</p>'+
         '<button id="useCount" class="btn block">Use this number</button>'+
         '<button id="discardCount" class="btn ghost block">Discard</button>';
       overlay.querySelector("#useCount").addEventListener("click", function(){
         closeOverlay();
-        onResult({crossings: count, durationSec: durationSec, avgGapSec: avgGap});
+        onResult({crossings: total, inCount: inCount, outCount: outCount, net: net, durationSec: durationSec});
       });
       overlay.querySelector("#discardCount").addEventListener("click", closeOverlay);
     }
@@ -1635,7 +1652,13 @@
   function summaryLine(entry){
     var d = entry.data || {};
     switch(entry.catId){
-      case "count": return d.zone+" — tally "+d.tally+", density "+d.density+"/5, "+d.flow;
+      case "count": {
+        var extras = [];
+        if(d.occupancyCount!=null && d.occupancyCount!=="") extras.push(d.occupancyCount+" people now");
+        if(d.dwellMinutes) extras.push(d.dwellMinutes+" min dwell");
+        if(d.lines && d.lines.length) extras.push(d.lines.length+" line(s), "+d.lines.reduce(function(a,b){return a+b;},0)+" total");
+        return d.zone+" — tally "+d.tally+", density "+d.density+"/5, "+d.flow+(extras.length?" · "+extras.join(", "):"");
+      }
       case "flow": return d.location+" — "+d.cause+", severity "+d.severity+"/5";
       case "lang": return d.location+" — "+(d.languages||[]).join(", ")+" ("+d.format+", quality "+d.quality+"/5)";
       case "rest": return d.type+(d.distance?" — "+d.distance:"");
@@ -1813,6 +1836,17 @@
       var avgD = avgOf(densities), avgT = avgOf(tallies);
       html = '<div class="report-stat-grid">'+statTile(n,"Tallies")+statTile(avgD!=null?avgD.toFixed(1)+"/5":"—","Avg density")+statTile(avgT!=null?Math.round(avgT):"—","Avg 60s count")+"</div>";
       html += countTableHtml(flowCounts, n, "Flow pattern");
+      var occ2 = entries.map(function(e){return Number(e.data.occupancyCount);}).filter(function(x){return !isNaN(x);});
+      var dwell2 = entries.map(function(e){return Number(e.data.dwellMinutes);}).filter(function(x){return !isNaN(x);});
+      var totalLines2 = 0, totalPeopleInLines2 = 0;
+      entries.forEach(function(e){ (e.data.lines||[]).forEach(function(v){ totalLines2++; totalPeopleInLines2 += v; }); });
+      if(occ2.length || dwell2.length || totalLines2){
+        html += '<div class="report-stat-grid" style="margin-top:8px;">'+
+          (occ2.length?statTile(Math.round(avgOf(occ2)),"Avg occupancy"):"")+
+          (dwell2.length?statTile(avgOf(dwell2).toFixed(1)+" min","Avg group dwell"):"")+
+          (totalLines2?statTile(totalLines2,"Lines observed"):"")+"</div>";
+        if(totalLines2) html += '<p class="muted">'+totalPeopleInLines2+" people counted across "+totalLines2+" queue observation"+(totalLines2===1?"":"s")+".</p>";
+      }
     } else if(catId==="flow"){
       var sevs = entries.map(function(e){return Number(e.data.severity);});
       var causeCounts = countBy(entries, function(e){return e.data.cause;});

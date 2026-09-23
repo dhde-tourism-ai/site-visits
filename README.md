@@ -9,7 +9,10 @@ Open that link on your phone, add it to your home screen, and pick your name —
 ## What it does
 
 - **Today** — pick the day (21/23/24 Sep, 2 Oct) to see that day's schedule, why it matters for the DHDE model, and field-conduct notes. No fixed roles — split up by category naturally when you arrive.
-- **Survey** — pick a site for the selected day and one of 8 categories: crowd count, bottlenecks & flow, multilingual signage, prayer & rest spaces, food & beverage census, **Intercept Survey**, photo log, spot tracker.
+- **Survey** — pick a site for the selected day and one of 10 categories: crowd count, occupancy & queues, bottlenecks & flow, multilingual signage, prayer & rest spaces, food & beverage census, **Intercept Survey**, photo log, spot tracker, field notes.
+- **Auto-scheduled site** — the site selector follows the day's actual timetable: as the clock moves into a new site's scheduled window, it switches for you automatically (a small "⏱ Following schedule" toggle next to the site list shows this is on). Pick a site manually at any time and it politely stops auto-switching — tap the toggle again to hand control back to the schedule.
+- **Occupancy & Queues** — a snapshot headcount for an area right now, a start/stop timer for how long a group lingers ("Time a group"), and a dynamic "+ Add a line" list for counting several queues separately (a reception desk and a ticket counter next to each other are two lines, not one) — running total shown live.
+- **Field Notes** — a plain qualitative-observation category with no required numbers, for anything worth recording that doesn't fit a structured field.
 - **Intercept Survey** — pick who you're talking to (Business/Shop Owner, Staff, or Tourist/Visitor) and the right question set appears, in English with Japanese underneath so you can show the screen if that helps:
   - *Business/Shop Owner*: 6 multiple-choice questions (daily traffic, tourist share, busiest times, language support, payment methods, year-over-year trend — every one includes a "Cannot answer" option) plus one open-ended question on their biggest challenge, and an optional photo of the business.
   - *Staff*: 4 open-ended questions about what visitors ask and struggle with.

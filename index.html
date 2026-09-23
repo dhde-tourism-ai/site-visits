@@ -17,6 +17,7 @@
     --line:#DED2B4; --good:#2F7D52; --warn:#B8811E; --critical:#9E2B25;
     --cat-count:#1F5FA8; --cat-flow:#9E2B25; --cat-lang:#7A4FB0; --cat-rest:#2F7D52;
     --cat-food:#B8811E; --cat-survey:#0E7C86; --cat-photo:#4E5A7C; --cat-spot:#B5548C;
+    --cat-occupancy:#5B4B8A; --cat-notes:#7A6A58;
     --font-display:'Zen Kaku Gothic New','Hiragino Sans',sans-serif;
     --font-body:'Noto Sans','Hiragino Sans',sans-serif;
     --font-jp:'Noto Sans JP','Hiragino Sans',sans-serif;
@@ -34,6 +35,7 @@
       --line:#2C3555; --good:#4FAE7C; --warn:#D9A73B; --critical:#E2564A;
       --cat-count:#5B9BDE; --cat-flow:#E2564A; --cat-lang:#B292E8; --cat-rest:#4FAE7C;
       --cat-food:#D9A73B; --cat-survey:#43C4CF; --cat-photo:#AAB2CE; --cat-spot:#E08FC9;
+      --cat-occupancy:#A99AD6; --cat-notes:#C9B8A0;
       --shadow-1:0 1px 2px rgba(0,0,0,.3); --shadow-2:0 8px 24px rgba(0,0,0,.45);
     }
   }
@@ -127,6 +129,16 @@
   .howto ul{margin-top:8px;}
   .photo-input{display:flex; flex-direction:column; gap:8px;}
   .photo-preview{width:100%; max-height:220px; object-fit:cover; border-radius:10px; border:1px solid var(--line); display:none;}
+  .lines-list{display:flex; flex-direction:column; gap:8px;}
+  .line-row{display:grid; grid-template-columns:60px 1fr 32px; align-items:center; gap:8px;}
+  .line-num{font-size:12px; color:var(--ink-soft); font-weight:600;}
+  .line-input{width:100%;}
+  .line-remove{background:var(--surface-2); border:1px solid var(--line); border-radius:8px; color:var(--critical); font-weight:700; font-size:15px; cursor:pointer; height:38px;}
+  .lines-total{color:var(--ink-soft);}
+
+  .timer-overlay{position:fixed; inset:0; z-index:110; background:var(--bg); display:flex; align-items:center; justify-content:center; padding:20px;}
+  .timer-card{background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:28px; max-width:320px; width:100%; text-align:center; box-shadow:var(--shadow-2);}
+  .timer-display{font-family:var(--font-mono); font-size:48px; font-weight:700; margin-bottom:20px; font-variant-numeric:tabular-nums;}
   .toast{position:fixed; left:16px; right:16px; bottom:calc(env(safe-area-inset-bottom,0px) + 78px); z-index:60; background:var(--ink); color:var(--bg); border-radius:11px; padding:12px 16px; font-size:13.5px; font-weight:600; box-shadow:var(--shadow-2); opacity:0; transform:translateY(8px); transition:opacity .2s, transform .2s; pointer-events:none; max-width:640px; margin:0 auto;}
   .toast.show{opacity:1; transform:translateY(0);}
 
@@ -212,6 +224,7 @@
   textarea#importBox{font-family:var(--font-mono); font-size:11.5px; min-height:80px;}
   .row2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
   .add-site-trigger{display:block; width:100%; text-align:left; background:none; border:1px dashed var(--line); border-radius:10px; padding:9px 12px; color:var(--accent); font-weight:700; font-size:13px; cursor:pointer; margin-bottom:10px;}
+  .link-btn{background:none; border:none; color:var(--accent); font-weight:700; font-size:11px; letter-spacing:normal; text-transform:none; cursor:pointer; padding:0;}
   .add-site-row{display:flex; gap:8px; margin:-4px 0 14px;}
   .add-site-row input{flex:1;}
   .muted{color:var(--ink-soft); font-size:13px;}
@@ -314,7 +327,7 @@
     </section>
 
     <section class="tab" id="tab-survey">
-      <div class="eyebrow" style="margin-bottom:8px;">1 · Site (<span id="surveyDayLabel"></span>)</div>
+      <div class="eyebrow" style="margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">1 · Site (<span id="surveyDayLabel"></span>) <button type="button" id="scheduleToggle" class="link-btn"></button></div>
       <div class="chiprow" id="siteChips"></div>
       <button type="button" class="add-site-trigger" id="addSiteTrigger">+ Add a site not listed here</button>
       <div class="add-site-row" id="addSiteRow" hidden>
@@ -520,6 +533,25 @@
   function allSites(){ var out=[]; DAYS.forEach(function(d){ sitesForDay(d.id).forEach(function(s){ out.push(Object.assign({dayId:d.id}, s)); }); }); return out; }
   function siteName(id){ var s = allSites().filter(function(x){return x.id===id;})[0]; return s ? s.name : id; }
   function dayLabel(id){ var d = findDay(id); return d ? d.label : id; }
+  function parseWindowRange(str){
+    if(!str) return null;
+    var m = String(str).match(/(\d{1,2}):(\d{2}).{0,3}(\d{1,2}):(\d{2})/);
+    if(!m) return null;
+    return { start: Number(m[1])*60+Number(m[2]), end: Number(m[3])*60+Number(m[4]) };
+  }
+  function scheduledSiteId(dayId){
+    var sites = sitesForDay(dayId);
+    var now = new Date();
+    var nowMin = now.getHours()*60+now.getMinutes();
+    var current = null, upcoming = null, upcomingDist = Infinity;
+    sites.forEach(function(s){
+      var w = parseWindowRange(s.window);
+      if(!w) return;
+      if(nowMin >= w.start && nowMin <= w.end) current = s.id;
+      else if(w.start > nowMin && (w.start-nowMin) < upcomingDist){ upcomingDist = w.start-nowMin; upcoming = s.id; }
+    });
+    return current || upcoming || null;
+  }
   function defaultDayId(){
     var today = new Date(); today.setHours(0,0,0,0);
     var todayStr = today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,"0")+"-"+String(today.getDate()).padStart(2,"0");
@@ -597,9 +629,26 @@
     survey:{label:"Intercept Survey", color:"var(--cat-survey)", blurb:"Pick who you're talking to — the right questions appear, in English and Japanese so you can show the screen if that helps.",
       how:["Business/shop owner: ask during a lull, keep it under 3 minutes, always ask permission first.","Staff: front-line staff often know visitor pain points better than management — ask them directly.","Tourist: approach people who've just paused, not mid-walk. Get verbal consent before jotting notes.","You can attach a short voice note instead of typing everything, if they're comfortable with it."],
       dynamic:true
-    }
+    },
+    occupancy:{label:"Occupancy & Queues", color:"var(--cat-occupancy)", blurb:"Snapshot how many people are in an area right now, how long groups linger, and how queues are forming — reception desks, ticket counters, popular viewpoints.",
+      how:["Occupancy count: count everyone visibly inside the area's boundary right now — a single snapshot, not a flow tally.","Group dwell time: pick one identifiable group (a family, a tour group) when they arrive, tap Time a group, then tap Stop when they leave.","Queues: count each distinct line separately — a ticket counter and an information desk right next to each other are two lines, not one. Add a line per queue and enter its headcount."],
+      fields:[
+        {id:"zone", label:"Zone / landmark", type:"text", req:true, ph:"e.g. Reception desk, ticket counter"},
+        {id:"occupancyCount", label:"People in the area right now", type:"number", req:true},
+        {id:"dwellMinutes", label:"Group dwell time (minutes)", type:"number", cam:"dwell"},
+        {id:"lines", label:"Queues / lines", type:"lines"},
+        {id:"notes", label:"Notes", type:"textarea"},
+        {id:"photo", label:"Photo (optional)", type:"photo"}
+      ]},
+    notes:{label:"Field Notes", color:"var(--cat-notes)", blurb:"Anything worth recording that isn't a number — context, impressions, things that don't fit a category.",
+      how:["Use this for qualitative observations: atmosphere, unexpected behaviour, things you'd tell the team verbally but that wouldn't otherwise get logged.","Tag it to a zone/landmark if it's about a specific spot, but that's optional — general site-wide observations are fine too."],
+      fields:[
+        {id:"zone", label:"Zone / landmark (optional)", type:"text"},
+        {id:"notes", label:"Observation", type:"textarea", req:true},
+        {id:"photo", label:"Photo (optional)", type:"photo"}
+      ]}
   };
-  var CAT_ORDER = ["count","flow","lang","rest","food","survey","photo","spot"];
+  var CAT_ORDER = ["count","occupancy","flow","lang","rest","food","survey","photo","spot","notes"];
 
   var SURVEY_TYPES = [
     {id:"business", en:"Business / Shop Owner", ja:"店舗・事業者"},
@@ -646,9 +695,9 @@
   var state = {
     identity: null, day: defaultDayId(), site: null, cat: "count", tab: "today",
     entries: new Map(), logFilterDay: "all", logFilterSite: "all", logFilterAuthor: null,
-    dashFilterDay: "all", sinceExport: 0, cloudOn: false, customSites: []
+    dashFilterDay: "all", sinceExport: 0, cloudOn: false, customSites: [], followSchedule: true
   };
-  state.site = findDay(state.day).sites[0].id;
+  state.site = scheduledSiteId(state.day) || findDay(state.day).sites[0].id;
 
   function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,9); }
   function initials(name){ var p = name.trim().split(/\s+/); return ((p[0]||"")[0]||"") + ((p[1]||"")[0]||""); }
@@ -795,6 +844,7 @@
     document.querySelectorAll("nav.tabbar button").forEach(function(b){ b.classList.toggle("active", b.getAttribute("data-tab")===tab); });
     document.querySelectorAll("section.tab").forEach(function(s){ s.classList.remove("active"); });
     document.getElementById("tab-"+tab).classList.add("active");
+    if(tab==="survey") checkScheduleFollow(true);
     if(tab==="log") renderLog();
     if(tab==="dash") renderDash();
   }
@@ -814,7 +864,8 @@
 
   function renderToday(){
     renderDayChips("dayChips", function(){return state.day;}, function(v){
-      state.day = v; state.site = sitesForDay(v)[0].id;
+      state.day = v; state.followSchedule = true;
+      state.site = scheduledSiteId(v) || sitesForDay(v)[0].id;
       renderToday(); renderSiteChips(); renderCatChips(); renderForm();
     }, false);
     var d = findDay(state.day);
@@ -825,6 +876,21 @@
   }
 
   /* ---------------- survey tab ---------------- */
+  function updateScheduleToggle(){
+    var btn = document.getElementById("scheduleToggle");
+    if(!btn) return;
+    btn.textContent = state.followSchedule ? "⏱ Following schedule" : "⏱ Manual — tap to resume";
+  }
+  function checkScheduleFollow(silent){
+    if(!state.followSchedule) return;
+    var target = scheduledSiteId(state.day);
+    if(target && target !== state.site){
+      state.site = target;
+      renderSiteChips();
+      if(state.tab==="survey") renderForm();
+      if(!silent) toast("Switched to "+siteName(target)+" — following schedule");
+    }
+  }
   function renderSiteChips(){
     var el = document.getElementById("siteChips");
     document.getElementById("surveyDayLabel").textContent = dayLabel(state.day);
@@ -832,7 +898,15 @@
     el.innerHTML = sites.map(function(s){
       return '<div class="chip'+(s.id===state.site?" active":"")+'" data-site="'+s.id+'"><b>'+esc(s.name)+"</b><small>"+esc(s.window)+"</small></div>";
     }).join("");
-    el.querySelectorAll("[data-site]").forEach(function(c){ c.addEventListener("click", function(){ state.site = c.getAttribute("data-site"); renderSiteChips(); renderForm(); }); });
+    el.querySelectorAll("[data-site]").forEach(function(c){
+      c.addEventListener("click", function(){
+        state.site = c.getAttribute("data-site");
+        state.followSchedule = false;
+        updateScheduleToggle();
+        renderSiteChips(); renderForm();
+      });
+    });
+    updateScheduleToggle();
   }
   function addCustomSite(name){
     name = name.trim();
@@ -857,7 +931,8 @@
   function fieldHtml(f){
     var reqMark = f.req ? ' <span class="req">*</span>' : "";
     var id = "f_"+f.id;
-    var camBtn = f.cam ? ' <button type="button" class="btn secondary" data-camfor="'+id+'" data-cammode="'+f.cam+'" style="margin-left:6px; padding:6px 10px; font-size:11.5px;">Manual tally</button>' : "";
+    var camLabel = f.cam==="dwell" ? "Time a group" : "Manual tally";
+    var camBtn = f.cam ? ' <button type="button" class="btn secondary" data-camfor="'+id+'" data-cammode="'+f.cam+'" style="margin-left:6px; padding:6px 10px; font-size:11.5px;">'+camLabel+'</button>' : "";
     if(f.type==="text") return '<div class="field"><label for="'+id+'">'+esc(f.label)+reqMark+(f.ja?'<span class="ja">'+esc(f.ja)+'</span>':'')+'</label><input type="text" id="'+id+'" placeholder="'+esc(f.ph||"")+'"></div>';
     if(f.type==="number") return '<div class="field"><label for="'+id+'">'+esc(f.label)+reqMark+camBtn+'</label><input type="number" inputmode="numeric" id="'+id+'"></div>';
     if(f.type==="textarea") return '<div class="field"><label for="'+id+'">'+esc(f.label)+reqMark+'</label><textarea id="'+id+'" placeholder="'+esc(f.ph||"")+'"></textarea></div>';
@@ -875,7 +950,31 @@
     }
     if(f.type==="yesno") return '<div class="field"><label>'+esc(f.label)+reqMark+'</label><div class="yesno" id="'+id+'"><button type="button" data-yn="'+id+'" data-val="yes">Yes</button><button type="button" data-yn="'+id+'" data-val="no">No</button></div></div>';
     if(f.type==="photo") return '<div class="field"><label>'+esc(f.label)+'</label><div class="photo-input"><input type="file" accept="image/*" capture="environment" id="'+id+'"><img class="photo-preview" id="'+id+'_prev"></div></div>';
+    if(f.type==="lines") return '<div class="field"><label>'+esc(f.label)+reqMark+'</label><div class="lines-list" id="'+id+'"></div>'+
+      '<button type="button" class="btn secondary lines-add-btn" data-linesfor="'+id+'" style="margin-top:4px; padding:6px 12px; font-size:12px;">+ Add a line</button>'+
+      '<div class="muted lines-total" id="'+id+'_total" style="margin-top:6px; font-size:12px;">No lines added</div></div>';
     return "";
+  }
+
+  function addLineRow(listEl){
+    var row = document.createElement("div");
+    row.className = "line-row";
+    var idx = listEl.children.length + 1;
+    row.innerHTML = '<span class="line-num">Line '+idx+'</span><input type="number" inputmode="numeric" class="line-input" placeholder="people"><button type="button" class="line-remove">×</button>';
+    listEl.appendChild(row);
+    row.querySelector(".line-input").addEventListener("input", function(){ updateLinesTotal(listEl); });
+    row.querySelector(".line-remove").addEventListener("click", function(){
+      row.remove(); renumberLines(listEl); updateLinesTotal(listEl);
+    });
+  }
+  function renumberLines(listEl){
+    Array.from(listEl.children).forEach(function(row,i){ row.querySelector(".line-num").textContent = "Line "+(i+1); });
+  }
+  function updateLinesTotal(listEl){
+    var vals = Array.from(listEl.querySelectorAll(".line-input")).map(function(inp){ return Number(inp.value); }).filter(function(v){ return !isNaN(v); });
+    var totalEl = document.getElementById(listEl.id+"_total");
+    if(!totalEl) return;
+    totalEl.textContent = vals.length ? ("Total: "+vals.reduce(function(a,b){return a+b;},0)+" people across "+vals.length+" line"+(vals.length===1?"":"s")) : "No lines added";
   }
 
   function wirePlainFields(root){
@@ -891,6 +990,12 @@
         var b = e.target.closest("button"); if(!b) return;
         wrap.querySelectorAll("button").forEach(function(x){ x.classList.remove("on"); });
         b.classList.add("on"); wrap.dataset.value = b.getAttribute("data-val");
+      });
+    });
+    root.querySelectorAll(".lines-add-btn").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var listEl = root.querySelector("#"+btn.getAttribute("data-linesfor"));
+        if(listEl) addLineRow(listEl);
       });
     });
   }
@@ -909,6 +1014,11 @@
     if(f.type==="scale5" || f.type==="yesno"){
       var wrap = root.querySelector("#"+id); var v2 = wrap ? wrap.dataset.value : null;
       return {value: v2||null, missing: f.req && !v2};
+    }
+    if(f.type==="lines"){
+      var listEl = root.querySelector("#"+id);
+      var lineVals = listEl ? Array.from(listEl.querySelectorAll(".line-input")).map(function(inp){ return Number(inp.value); }).filter(function(v){ return !isNaN(v); }) : [];
+      return {value: lineVals, missing: f.req && lineVals.length===0};
     }
     return {value:null, missing:false};
   }
@@ -985,8 +1095,16 @@
     var camBtn = card.querySelector("[data-camfor]");
     if(camBtn){
       camBtn.addEventListener("click", function(){
+        var mode = camBtn.getAttribute("data-cammode");
+        var target = document.getElementById(camBtn.getAttribute("data-camfor"));
+        if(mode==="dwell"){
+          openDwellTimer(function(minutes){
+            if(target){ target.value = minutes; }
+            toast("Filled dwell time: "+minutes+" min");
+          });
+          return;
+        }
         openFlowCamera(function(result){
-          var target = document.getElementById(camBtn.getAttribute("data-camfor"));
           if(target){ target.value = result.crossings; }
           var notesEl = document.getElementById("f_notes");
           if(notesEl && !notesEl.value.trim() && result.avgGapSec){
@@ -1209,6 +1327,40 @@
     canvas.style.height = vRect.height + "px";
     canvas.width = Math.round(vRect.width);
     canvas.height = Math.round(vRect.height);
+  }
+
+  function openDwellTimer(onResult){
+    var overlay = document.createElement("div");
+    overlay.className = "timer-overlay";
+    overlay.innerHTML =
+      '<div class="timer-card"><div class="timer-display" id="timerDisplay">0:00</div>'+
+      '<button class="btn block" id="timerStartStop">Start</button>'+
+      '<div class="row2" id="timerResultRow" hidden style="margin-top:10px;"><button class="btn ghost" id="timerDiscard">Discard</button><button class="btn" id="timerUse">Use this duration</button></div>'+
+      '<button class="btn ghost block" id="timerClose" style="margin-top:10px;">Cancel</button></div>';
+    document.body.appendChild(overlay);
+    var running = false, startTs = null, intervalId = null, elapsedSec = 0;
+    function updateDisplay(){
+      var m = Math.floor(elapsedSec/60), s = elapsedSec%60;
+      overlay.querySelector("#timerDisplay").textContent = m+":"+(s<10?"0":"")+s;
+    }
+    overlay.querySelector("#timerStartStop").addEventListener("click", function(){
+      if(!running){
+        running = true; startTs = Date.now() - elapsedSec*1000;
+        this.textContent = "Stop";
+        intervalId = setInterval(function(){ elapsedSec = Math.floor((Date.now()-startTs)/1000); updateDisplay(); }, 500);
+      } else {
+        running = false; clearInterval(intervalId);
+        this.textContent = "Resume";
+        overlay.querySelector("#timerResultRow").hidden = false;
+      }
+    });
+    overlay.querySelector("#timerUse").addEventListener("click", function(){
+      var minutes = Math.round((elapsedSec/60)*10)/10;
+      clearInterval(intervalId); overlay.remove();
+      onResult(minutes);
+    });
+    overlay.querySelector("#timerDiscard").addEventListener("click", function(){ clearInterval(intervalId); overlay.remove(); });
+    overlay.querySelector("#timerClose").addEventListener("click", function(){ clearInterval(intervalId); overlay.remove(); });
   }
 
   function openFlowCamera(onResult){
@@ -1495,6 +1647,13 @@
         if(d.personType==="staff") return (d.orgName||"Staff")+" — "+(d.s1||"").slice(0,70);
         if(d.personType==="tourist") return (d.origin||"Tourist")+" — "+(d.t1||"").slice(0,70);
         return "Survey";
+      case "occupancy": {
+        var parts = [d.zone, (d.occupancyCount!=null && d.occupancyCount!=="") ? d.occupancyCount+" people now" : null];
+        if(d.dwellMinutes) parts.push(d.dwellMinutes+" min dwell");
+        if(d.lines && d.lines.length) parts.push(d.lines.length+" line(s), "+d.lines.reduce(function(a,b){return a+b;},0)+" total");
+        return parts.filter(Boolean).join(" — ");
+      }
+      case "notes": return (d.zone?d.zone+": ":"")+(d.notes||"").slice(0,90);
       default: return "";
     }
   }
@@ -1515,6 +1674,12 @@
         if(f.type==="photo") return;
         var v = d[f.id];
         if(v==null || v==="") return;
+        if(f.type==="lines"){
+          if(!Array.isArray(v) || v.length===0) return;
+          var total = v.reduce(function(a,b){return a+b;},0);
+          out.push({label: f.label, value: v.join(", ")+" (total "+total+" across "+v.length+" line"+(v.length===1?"":"s")+")"});
+          return;
+        }
         if(Array.isArray(v)){ if(v.length===0) return; v = v.join(", "); }
         out.push({label: f.label, value: String(v)});
       });
@@ -1705,11 +1870,22 @@
           if(answers.length) html += "<h4 style='font-size:12.5px;margin:10px 0 4px;'>"+esc(q.en)+"</h4><ul class='report-quote-list'>"+answers.map(function(a){return "<li>"+esc(a)+"</li>";}).join("")+"</ul>";
         });
       });
+    } else if(catId==="occupancy"){
+      var occ = entries.map(function(e){return Number(e.data.occupancyCount);}).filter(function(x){return !isNaN(x);});
+      var dwell = entries.map(function(e){return Number(e.data.dwellMinutes);}).filter(function(x){return !isNaN(x);});
+      var totalLines = 0, totalPeopleInLines = 0;
+      entries.forEach(function(e){ (e.data.lines||[]).forEach(function(v){ totalLines++; totalPeopleInLines += v; }); });
+      html = '<div class="report-stat-grid">'+statTile(n,"Snapshots")+statTile(avgOf(occ)!=null?Math.round(avgOf(occ)):"—","Avg occupancy")+statTile(avgOf(dwell)!=null?avgOf(dwell).toFixed(1)+" min":"—","Avg group dwell")+statTile(totalLines,"Lines observed")+"</div>";
+      if(totalLines) html += '<p class="muted">'+totalPeopleInLines+" people counted across "+totalLines+" queue observation"+(totalLines===1?"":"s")+".</p>";
+    } else if(catId==="notes"){
+      var noteTexts = entries.map(function(e){ return (e.data.zone?e.data.zone+": ":"")+e.data.notes; }).filter(Boolean).slice(0,12);
+      html = '<div class="report-stat-grid">'+statTile(n,"Observations")+"</div>";
+      if(noteTexts.length) html += '<ul class="report-quote-list">'+noteTexts.map(function(t){return "<li>"+esc(t)+"</li>";}).join("")+"</ul>";
     }
     return html;
   }
 
-  var SHORT_CAT_LABEL = {count:"Count",flow:"Flow",lang:"Signage",rest:"Rest",food:"Food",survey:"Survey",photo:"Photo",spot:"Spot"};
+  var SHORT_CAT_LABEL = {count:"Count",flow:"Flow",lang:"Signage",rest:"Rest",food:"Food",survey:"Survey",photo:"Photo",spot:"Spot",occupancy:"Occup.",notes:"Notes"};
 
   function svgBarChart(items){
     items = items.filter(function(i){return i.value>0;});
@@ -1925,6 +2101,12 @@
     document.getElementById("newSiteName").value = "";
     document.getElementById("addSiteRow").hidden = true;
   });
+  document.getElementById("scheduleToggle").addEventListener("click", function(){
+    state.followSchedule = !state.followSchedule;
+    if(state.followSchedule) checkScheduleFollow(true);
+    updateScheduleToggle();
+  });
+  setInterval(function(){ checkScheduleFollow(false); }, 60000);
 
   /* ---------------- boot ---------------- */
   loadLocal();

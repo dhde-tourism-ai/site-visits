@@ -99,12 +99,14 @@
   ul.plain li{padding-left:16px; position:relative; font-size:13.5px; color:var(--ink-soft);}
   ul.plain li::before{content:"–"; position:absolute; left:0; color:var(--accent); font-weight:700;}
 
-  .chiprow{display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; margin:0 -2px 14px; scrollbar-width:none;}
+  .chiprow{display:flex; flex-wrap:wrap; gap:8px; margin:0 0 14px;}
   .chiprow::-webkit-scrollbar{display:none;}
-  .chip{flex:none; background:var(--surface); border:1px solid var(--line); border-radius:11px; padding:9px 13px; cursor:pointer; font-size:13px; font-weight:600; color:var(--ink-soft); display:flex; flex-direction:column; gap:1px; min-width:118px;}
+  .chip{flex:1 1 150px; min-width:0; background:var(--surface); border:1px solid var(--line); border-radius:11px; padding:9px 13px; cursor:pointer; font-size:13px; font-weight:600; color:var(--ink-soft); display:flex; flex-direction:column; gap:1px; min-width:118px;}
   .chip b{color:var(--ink); font-size:13.5px;}
   .chip small{font-family:var(--font-mono); font-size:10.5px; font-weight:500;}
   .chip.active{border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset;}
+  .chip.past:not(.active){opacity:.55;}
+  .chip .tag-now{color:var(--accent); font-weight:800; font-family:var(--font-sans, inherit);}
   .catchip{flex:none; border:1px solid var(--line); background:var(--surface); border-radius:999px; padding:8px 14px; font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:7px;}
   .catchip .swatch{width:9px; height:9px; border-radius:50%; flex:none;}
   .catchip.active{color:var(--accent-ink); border-color:transparent;}
@@ -271,7 +273,7 @@
   .plan-targets{font-size:13px; margin-top:8px;}
   .plan-targets ul{margin:4px 0 0; padding-left:18px;}
   .plan-targets li{margin:2px 0; line-height:1.45;}
-  .plan-tabs{display:flex; gap:6px; overflow-x:auto; margin:12px -4px 0; padding:2px 4px 6px; scrollbar-width:none;}
+  .plan-tabs{display:flex; flex-wrap:wrap; gap:6px; margin:12px 0 0;}
   .plan-tabs::-webkit-scrollbar{display:none;}
   .plan-tab{flex:none; border:1px solid var(--line); background:var(--surface); color:var(--ink-soft); border-radius:999px; padding:7px 12px; font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap;}
   .plan-tab.active{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}
@@ -279,7 +281,17 @@
   .plan-tab.active .n{background:var(--accent-ink); color:var(--accent);}
   .plan-tab.done:not(.active){border-color:var(--good);}
   .item-tabs .plan-tab{max-width:220px; overflow:hidden; text-overflow:ellipsis;}
-  .item-card{border:1px solid var(--line); border-radius:12px; padding:12px; margin-top:8px;}
+  .item-card{border:1px solid var(--accent); border-radius:12px; padding:12px; margin:-2px 0 4px;}
+  .item-progress{font-size:12px; color:var(--ink-soft); margin-top:12px; font-weight:700;}
+  .item-list{display:flex; flex-direction:column; gap:6px; margin-top:6px;}
+  .item-row{display:flex; gap:10px; align-items:flex-start; width:100%; text-align:left; border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:10px; padding:10px 12px; font-size:13.5px; font-weight:600; cursor:pointer; line-height:1.4;}
+  .item-row .num{flex:none; min-width:22px; font-family:var(--font-mono); font-weight:800; color:var(--ink-soft);}
+  .item-row .txt{flex:1;}
+  .item-row .cnt{flex:none; font-size:11.5px; font-weight:800; padding:2px 8px; border-radius:999px; background:var(--surface-2); color:var(--ink);}
+  .item-row.done .cnt{background:var(--good); color:#fff;}
+  .item-row.active{border-color:var(--accent); background:color-mix(in srgb, var(--accent) 8%, var(--surface)); border-bottom-left-radius:4px; border-bottom-right-radius:4px;}
+  .item-row.active .num{color:var(--accent);}
+  .item-sec{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--accent); margin:8px 2px 0;}
   .item-section{font-size:11.5px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; color:var(--accent); margin-top:4px;}
   .plan-targets li.tgt-h{list-style:none; margin:8px 0 2px -18px; font-weight:800; font-size:12px; color:var(--ink-soft);}
   .item-card h3{font-size:14.5px; margin:0 0 4px; line-height:1.4;}
@@ -546,6 +558,9 @@
     [/^(.+) is already the TA for this group$/, function(m){ return m[1]+" がすでにこのグループのTAです"; }],
     [/^You're in (.+)\.$/, function(m){ return jaAny(m[1]).replace(/^Group (\d+)$/,"グループ$1")+"に参加中です。"; }],
     [/^(Join|Switch to) (.+)$/, function(m){ var g = m[2].replace(/^Group (\d+)$/,"グループ$1"); return m[1]==="Join" ? g+"に参加" : g+"に移る"; }],
+    [/^(\d+) of (\d+) items logged$/, function(m){ return m[2]+"項目中 "+m[1]+"項目を記録済み"; }],
+    [/^(.+) · (today|now)$/, function(m){ return jaAny(m[1])+(m[2]==="today"?" · 今日":" · 現在"); }],
+    [/^· (today|now)$/, function(m){ return m[1]==="today" ? "· 今日" : "· 現在"; }],
     [/^Merged (\d+) new entries$/, function(m){ return m[1]+"件の新しい記録を統合しました"; }],
     [/^Switched to (.+) — following schedule$/, function(m){ return jaAny(m[1])+"に切り替えました(予定に合わせて)"; }],
     [/^Filled tally: (.+)$/, function(m){ return "カウントを入力: "+m[1]; }],
@@ -698,7 +713,7 @@
   function dayLabel(id){ var d = findDay(id); return d ? d.label : id; }
   function parseWindowRange(str){
     if(!str) return null;
-    var m = String(str).match(/(\d{1,2}):(\d{2}).{0,3}(\d{1,2}):(\d{2})/);
+    var m = String(str).match(/(\d{1,2}):(\d{2})\D{0,3}(\d{1,2}):(\d{2})/);
     if(!m) return null;
     return { start: Number(m[1])*60+Number(m[2]), end: Number(m[3])*60+Number(m[4]) };
   }
@@ -1044,12 +1059,17 @@
   }
 
   /* ---------------- today tab ---------------- */
+  function localDateStr(){ var d = new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+  // The site being visited right now, if the selected day is today.
+  function nowSiteId(dayId){ var d = findDay(dayId); return d && d.date===localDateStr() ? scheduledSiteId(dayId) : null; }
   function renderDayChips(containerId, currentGetter, currentSetter, includeAll){
     var el = document.getElementById(containerId);
     var chips = includeAll ? [{id:"all", label:"All days"}].concat(DAYS.map(function(d){return {id:d.id, label:d.label};})) :
       DAYS.map(function(d){return {id:d.id, label:d.label, date:d.date};});
+    var today = localDateStr();
     el.innerHTML = chips.map(function(c){
-      return '<div class="chip'+(currentGetter()===c.id?" active":"")+'" data-d="'+c.id+'"><b>'+esc(c.label)+'</b>'+(c.date?"<small>"+esc(c.date)+"</small>":"")+"</div>";
+      var past = c.date && c.date < today, isToday = c.date===today;
+      return '<div class="chip'+(currentGetter()===c.id?" active":"")+(past?" past":"")+'" data-d="'+c.id+'"><b>'+esc(c.label)+'</b>'+(c.date?"<small>"+esc(c.date)+(isToday?' <span class="tag-now">· today</span>':"")+"</small>":"")+"</div>";
     }).join("");
     el.querySelectorAll(".chip").forEach(function(c){
       c.addEventListener("click", function(){ currentSetter(c.getAttribute("data-d")); });
@@ -1190,11 +1210,11 @@
   function renderPlanSiteChips(){
     var el = document.getElementById("planSiteChips");
     var chips = sitesForDay(state.day).map(function(s){ return {id:s.id, name:s.name, sub:s.window}; }).concat([{id:DAY_PLAN, name:"Whole day", sub:"Default for every site"}]);
-    var cur = planSite();
+    var cur = planSite(), nowPlanSite = nowSiteId(state.day);
     if(!chips.some(function(c){ return c.id===cur; })) cur = state.planSite = chips[0].id;
     el.innerHTML = chips.map(function(c){
       var has = !!state.plans[planKey(state.day, c.id)];
-      return '<div class="chip'+(c.id===cur?" active":"")+'" data-psite="'+esc(c.id)+'"><b>'+esc(c.name)+(has?" ✓":"")+"</b><small>"+esc(c.sub||"")+"</small></div>";
+      return '<div class="chip'+(c.id===cur?" active":"")+'" data-psite="'+esc(c.id)+'"><b>'+esc(c.name)+(has?" ✓":"")+"</b><small>"+esc(c.sub||"")+(c.id===nowPlanSite?' <span class="tag-now">· now</span>':"")+"</small></div>";
     }).join("");
     el.querySelectorAll("[data-psite]").forEach(function(c){ c.addEventListener("click", function(){
       state.planSite = c.getAttribute("data-psite"); state.planEditing = false; state.planDraft = null; renderPlan();
@@ -1284,27 +1304,22 @@
     var inGroup = mine && mine.id===g.id;
     var html = (inGroup ? "" : '<div class="join-bar"><span>'+(mine?"You're in "+esc(shortGroupName(mine))+".":"You're not in a group yet.")+'</span><button class="btn" data-join="'+esc(g.id)+'">'+(mine?"Switch to "+esc(shortGroupName(g)):"Join "+esc(shortGroupName(g)))+"</button></div>")+
       groupCardHtml(g, mine, false);
-    if(!items.length) return html+'<p class="muted" style="margin-top:10px;">No target objectives yet. A planner can add them with Edit &amp; republish, and each one will appear here as a tab.</p>';
-    html += '<div class="plan-tabs item-tabs">'+items.map(function(t, i){
-      var n = t===null ? orphans.length : targetLogs(plan, g, t).length;
-      var tag = t===null ? "" : sectionTag(itemObjs[i].section);
-      return '<button class="plan-tab'+(i===sel?" active":"")+(n?" done":"")+'" data-pitem="'+i+'" title="'+esc(t===null?"Earlier items":t)+'">'+(t===null?"Earlier items":(tag?tag+" · ":"")+(i+1)+". "+esc(t))+'<span class="n">'+n+"</span></button>";
-    }).join("")+"</div>";
+    if(!items.length) return html+'<p class="muted" style="margin-top:10px;">No target objectives yet. A planner can add them with Edit &amp; republish, and each one will appear here as an item to log.</p>';
+    var doneCount = itemObjs.filter(function(it){ return targetLogs(plan, g, it.text).length>0; }).length;
+    html += '<div class="item-progress">'+doneCount+" of "+itemObjs.length+" items logged</div>";
     var target = items[sel];
     var logs = target===null ? orphans : targetLogs(plan, g, target);
-    html += '<div class="item-card">';
+    var card = '<div class="item-card">';
     if(target!==null){
-      html += '<div class="plan-meta">Item '+(sel+1)+" of "+itemObjs.length+" · "+esc(shortGroupName(g))+'</div>'+
-        (itemObjs[sel].section ? '<div class="item-section">'+esc(itemObjs[sel].section)+"</div>" : "")+'<h3>'+esc(target)+"</h3>"+
-        '<form id="itemLogForm">'+CATEGORIES.target.fields.map(function(f){
+      card += '<form id="itemLogForm">'+CATEGORIES.target.fields.map(function(f){
           var h = fieldHtml(f);
           return f.type==="textarea" ? h.replace("<textarea ", '<textarea data-tl ') : h;
         }).join("")+
         '<button type="submit" class="btn block">Log for this item</button></form>';
     } else {
-      html += '<h3>Earlier items</h3><p class="muted">Logs for items that were later renamed or removed from the plan.</p>';
+      card += '<p class="muted">Logs for items that were later renamed or removed from the plan.</p>';
     }
-    html += '<div style="margin-top:12px;"><b style="font-size:12.5px;">Logged so far ('+logs.length+")</b>"+
+    card += '<div style="margin-top:12px;"><b style="font-size:12.5px;">Logged so far ('+logs.length+")</b>"+
       (logs.length ? logs.map(function(e){ var d = e.data;
         return '<div class="item-log"><div class="who">'+esc(fmtTime(e.ts))+" · "+esc(e.author)+(target===null?" · "+esc(d.target||""):"")+"</div>"+
           '<div><b>Problem:</b> '+esc(d.observed||"")+"</div>"+
@@ -1312,13 +1327,25 @@
           (d.opportunity ? '<div><b>Solution:</b> '+esc(d.opportunity)+"</div>" : "")+
           (e.localPhoto ? '<img src="'+e.localPhoto+'" alt="">' : "")+"</div>";
       }).join("") : '<p class="muted" style="margin-top:6px;">Nothing logged for this item yet.</p>')+"</div></div>";
+    var lastSec = "";
+    html += '<div class="item-list">'+items.map(function(t, i){
+      var n = t===null ? orphans.length : targetLogs(plan, g, t).length;
+      var sec = t===null ? "" : itemObjs[i].section, head = "";
+      if(sec && sec!==lastSec){ head = '<div class="item-sec">'+esc(sec)+"</div>"; }
+      lastSec = sec;
+      var row = '<button type="button" class="item-row'+(i===sel?" active":"")+(n?" done":"")+'" data-pitem="'+i+'">'+
+        '<span class="num">'+(t===null?"…":(i+1))+"</span>"+
+        '<span class="txt">'+esc(t===null?"Earlier items":t)+"</span>"+
+        '<span class="cnt">'+(n?"✓ "+n:"0")+"</span></button>";
+      return head+row+(i===sel?card:"");
+    }).join("")+"</div>";
     return html;
   }
   function wireGroupWork(plan, g, body){
-    body.querySelectorAll(".plan-tabs .plan-tab.active").forEach(function(t){ try{ t.scrollIntoView({block:"nearest", inline:"center"}); }catch(e){} });
+    if(state.itemJustPicked){ state.itemJustPicked = false; body.querySelectorAll(".item-row.active").forEach(function(t){ try{ t.scrollIntoView({block:"start", behavior:"smooth"}); }catch(e){} }); }
     body.querySelectorAll("[data-pitem]").forEach(function(b){ b.addEventListener("click", function(){
       if(planLogDirty() && !confirm("Discard what you've typed for this item?")) return;
-      state.planItem[g.id] = Number(b.getAttribute("data-pitem")); renderPlan();
+      state.planItem[g.id] = Number(b.getAttribute("data-pitem")); state.itemJustPicked = true; renderPlan();
     }); });
     var form = document.getElementById("itemLogForm");
     if(!form) return;
@@ -1400,14 +1427,15 @@
     }); });
     if(plan && state.planTab!=="overview"){ var wg = resolvedGroups(plan).filter(function(g){ return g.id===state.planTab; })[0]; if(wg) wireGroupWork(plan, wg, body); }
   }
-  // Plan templates, from Gabriella's split on 24 Sep: transit spaces (airport,
-  // station) use the three-group Komatsu split, with Group 1 on surveys and
-  // Group 3 taking the visitor journey; attractions (museum, garden) use two
-  // groups, visitor surveys and crowd movement.
+  // Plan templates. Transit spaces (airport, station) use three groups and
+  // attractions (museum, garden, market) two. In both, Group 1 is a dedicated
+  // survey team; in transit spaces the multilingual group also notes the
+  // visitor journey along the route.
   var PLAN_TEMPLATES = {
     transit: {label:"Transit space", hint:"Airport, station: 3 groups"},
     attraction: {label:"Attraction", hint:"Museum, garden, market: 2 groups"}
   };
+  var SURVEY_GROUP_OBJECTIVE = "Dedicated survey team: intercept surveys using the Intercept Survey in the app. No journey or crowd analysis.";
   function planTemplate(kind, site){
     var place = site && site!==DAY_PLAN ? siteName(site) : "this site";
     if(kind==="transit") return {
@@ -1415,25 +1443,25 @@
       recordFormat: "Problem → Impact → Solution",
       notes: "Focus on decision points and friction, not just documenting facilities. Take photos.\nArrival → Information → Destination choice → Transport choice → Fukui / elsewhere.",
       groups: [
-        {id:newGroupId(), name:"Group 1: Visitor surveys & interviews", activities:["survey"], lead:"", tasks:"", members:["Husn Shujaat","Mohammed Sohail","Muskaan Irfan"],
-          objective:"Interview visitors, staff and businesses about where people come from, where they go next, and how they decide.",
+        {id:newGroupId(), name:"Group 1: Dedicated surveys", activities:["survey"], lead:"", tasks:"", members:["Husn Shujaat","Mohammed Sohail","Muskaan Irfan"],
+          objective: SURVEY_GROUP_OBJECTIVE,
           targets:["Visitors:","Where have they come from, and where are they heading next?","How did they plan the trip (Google Maps, social media, tourism websites, recommendations)?","Have they heard of Fukui? Would they consider going?","Staff and businesses:","What do visitors ask most often, and where do they get stuck?","Which destinations do visitors ask about?"]},
-        {id:newGroupId(), name:"Group 2: Fukui visibility & multilingual information", activities:["metrics"], lead:"", tasks:"", members:["Dina Belay","Jana Wasfi","Muhammad Anugra Rizky Rambe"],
-          objective:"Audit which destinations are promoted here, comparing Fukui with Kanazawa, Kaga and other Hokuriku destinations.",
-          targets:["Signage, maps, brochures and digital screens: which destinations appear","English, Chinese and Korean information: what is available, and for where","Tourist information desk: what do they recommend?","Pamphlets and leaflets: which destinations they direct visitors to"]},
-        {id:newGroupId(), name:"Group 3: Visitor journey & transport", activities:["metrics"], lead:"Gabriella Gunarto", tasks:"", members:["Gabriella Gunarto"],
-          objective:"Walk it as a first-time foreign visitor: arrival → finding information → choosing a destination → finding transport. How easy is \"How do I get to Fukui?\" compared with \"How do I get to Kanazawa?\"",
-          targets:["Visitor journey:","Record every decision point from arrival to transport","Note where the journey becomes unclear","Transport:","Ticket purchasing and payment options","Timetable and departure information visibility","Walking route and signage to buses, taxis, trains and rental cars"]}
+        {id:newGroupId(), name:"Group 2: Multilingual information & visitor journey", activities:["metrics"], lead:"", tasks:"", members:["Dina Belay","Jana Wasfi","Muhammad Anugra Rizky Rambe"],
+          objective:"Audit which destinations are promoted here (Fukui compared with Kanazawa, Kaga and other Hokuriku destinations), and note the visitor journey naturally along the route.",
+          targets:["Multilingual information:","Signage, maps, brochures and digital screens: which destinations appear","English, Chinese and Korean information: what is available, and for where","Tourist information desk: what do they recommend?","Pamphlets and leaflets: which destinations they direct visitors to","Along the route:","Decision points: where does a visitor have to choose?","Where does the journey become unclear?"]},
+        {id:newGroupId(), name:"Group 3: Transportation & connectivity", activities:["metrics"], lead:"Gabriella Gunarto", tasks:"", members:["Gabriella Gunarto"],
+          objective:"Trace the route to buses, taxis, trains and rental cars. How easy is \"How do I get to Fukui?\" compared with \"How do I get to Kanazawa?\"",
+          targets:["Ticket purchasing and payment options","Timetable and departure information visibility","Walking route and signage to buses, taxis, trains and rental cars","Fukui compared with Kanazawa: how clear is the way to each?"]}
       ]};
     return {
       mainQuestion: "Understand how visitors arrive, move through, gather and leave "+place+", and whether there are identifiable patterns of concentration or congestion.",
       recordFormat: "Problem → Impact → Solution",
       notes: "",
       groups: [
-        {id:newGroupId(), name:"Group 1: Visitor surveys", activities:["survey"], lead:"Mohammed Sohail", tasks:"Similar to what we did at the Dinosaur Museum.", members:["Husn Shujaat","Jana Wasfi","Mohammed Sohail","Muskaan Irfan"],
-          objective:"Visitor survey / interview: understand the visitor journey.",
-          targets:["Focus on understanding the visitor journey:","Where did they come from before "+place+"?","How did they get here? Walk / bus / car / other?","Why did they choose to visit?","Where are they going next?","How did they decide their itinerary?","Did they use Google Maps, social media, tourism websites, recommendations, etc.?","If it is closed or too crowded, what will they do instead?"]},
-        {id:newGroupId(), name:"Group 2: Crowd movement", activities:["metrics"], lead:"Gabriella Gunarto", tasks:"Similar to what we did at the Dinosaur Museum.", members:["Gabriella Gunarto","Muhammad Anugra Rizky Rambe","Dina Belay"],
+        {id:newGroupId(), name:"Group 1: Dedicated surveys", activities:["survey"], lead:"Mohammed Sohail", tasks:"", members:["Husn Shujaat","Jana Wasfi","Mohammed Sohail","Muskaan Irfan"],
+          objective: SURVEY_GROUP_OBJECTIVE,
+          targets:["Ask each visitor:","Where did they come from before "+place+"?","How did they get here? Walk / bus / car / other?","Why did they choose to visit?","Where are they going next?","How did they decide their itinerary?","Did they use Google Maps, social media, tourism websites, recommendations, etc.?","If it is closed or too crowded, what will they do instead?"]},
+        {id:newGroupId(), name:"Group 2: Crowd movement", activities:["metrics"], lead:"Gabriella Gunarto", tasks:"", members:["Gabriella Gunarto","Muhammad Anugra Rizky Rambe","Dina Belay"],
           objective:"Crowd observation.",
           targets:["A. Main approach / entrance area","Capture arrivals and where people are coming from.","B. Main visitor area","Observe where visitors gather, dwell, take photos, or move through.","C. Exit / surrounding pedestrian connection","Observe where visitors go afterwards: nearby sites, city streets, bus stops, etc."]}
       ]};
@@ -1565,9 +1593,9 @@
   function renderSiteChips(){
     var el = document.getElementById("siteChips");
     document.getElementById("surveyDayLabel").textContent = dayLabel(state.day);
-    var sites = sitesForDay(state.day);
+    var sites = sitesForDay(state.day), nowSite = nowSiteId(state.day);
     el.innerHTML = sites.map(function(s){
-      return '<div class="chip'+(s.id===state.site?" active":"")+'" data-site="'+s.id+'"><b>'+esc(s.name)+"</b><small>"+esc(s.window)+"</small></div>";
+      return '<div class="chip'+(s.id===state.site?" active":"")+'" data-site="'+s.id+'"><b>'+esc(s.name)+"</b><small>"+esc(s.window)+(s.id===nowSite?' <span class="tag-now">· now</span>':"")+"</small></div>";
     }).join("");
     el.querySelectorAll("[data-site]").forEach(function(c){
       c.addEventListener("click", function(){

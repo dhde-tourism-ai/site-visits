@@ -247,6 +247,11 @@
   .plan-links{display:flex; flex-direction:column; gap:6px; margin-top:10px;}
   .plan-links a{font-size:13px; font-weight:700; color:var(--accent);}
   .plan-meta{font-size:11.5px; color:var(--ink-soft); margin-top:4px;}
+  .plan-question{margin-top:10px; padding:10px 12px; border-radius:10px; background:color-mix(in srgb, var(--accent) 8%, transparent); font-size:13.5px; line-height:1.5;}
+  .plan-question b{display:block; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); margin-bottom:2px;}
+  .plan-targets{font-size:13px; margin-top:8px;}
+  .plan-targets ul{margin:4px 0 0; padding-left:18px;}
+  .plan-targets li{margin:2px 0; line-height:1.45;}
   hr.soft{border:none; border-top:1px solid var(--line); margin:14px 0;}
 
   /* survey module */
@@ -354,6 +359,8 @@
     <section class="tab" id="tab-plan">
       <div class="eyebrow" style="margin-bottom:8px;">Day</div>
       <div class="chiprow" id="planDayChips"></div>
+      <div class="eyebrow" style="margin:4px 0 8px;">Site</div>
+      <div class="chiprow" id="planSiteChips"></div>
       <div id="planBody"></div>
     </section>
 
@@ -745,7 +752,7 @@
     identity: null, day: defaultDayId(), site: null, cat: "count", tab: "today",
     entries: new Map(), logFilterDay: "all", logFilterSite: "all", logFilterAuthor: null,
     dashFilterDay: "all", sinceExport: 0, cloudOn: false, customSites: [], followSchedule: true,
-    plans: {}, planEditing: false, planDraft: null
+    plans: {}, planJoins: {}, planSite: null, planEditing: false, planDraft: null
   };
   state.site = scheduledSiteId(state.day) || findDay(state.day).sites[0].id;
 
@@ -763,7 +770,7 @@
   function fmtDur(sec){ var m=Math.floor(sec/60), s=sec%60; return m+":"+(s<10?"0":"")+s; }
 
   function persistLocal(){ try{ localStorage.setItem("dhde_entries", JSON.stringify(Array.from(state.entries.values()))); localStorage.setItem("dhde_since_export", String(state.sinceExport)); }catch(e){} }
-  function persistPlans(){ try{ localStorage.setItem("dhde_plans", JSON.stringify(state.plans)); }catch(e){} }
+  function persistPlans(){ try{ localStorage.setItem("dhde_plans2", JSON.stringify({plans: state.plans, joins: state.planJoins})); }catch(e){} }
   function persistCustomSites(){ try{ localStorage.setItem("dhde_custom_sites", JSON.stringify(state.customSites)); }catch(e){} }
   function loadLocal(){
     try{
@@ -775,8 +782,8 @@
       if(se) state.sinceExport = Number(se)||0;
       var cs = localStorage.getItem("dhde_custom_sites");
       if(cs) state.customSites = JSON.parse(cs);
-      var pl = localStorage.getItem("dhde_plans");
-      if(pl) state.plans = JSON.parse(pl);
+      var pl = localStorage.getItem("dhde_plans2");
+      if(pl){ pl = JSON.parse(pl); state.plans = pl.plans||{}; state.planJoins = pl.joins||{}; }
     }catch(e){}
   }
 
@@ -807,6 +814,7 @@
             // Team plans ride in the entries collection (existing Firestore rules
             // already allow it) but are never survey data, so keep them out of Log/Report.
             if(incoming.catId==="plan"){ acceptPlan(incoming); return; }
+            if(incoming.catId==="planjoin"){ acceptPlanJoin(incoming); return; }
             var existing = state.entries.get(change.doc.id);
             if(existing && (existing.localPhoto || existing.audioNote)){
               incoming = Object.assign({}, incoming, {localPhoto: existing.localPhoto, audioNote: existing.audioNote});
@@ -905,7 +913,7 @@
     if(tab==="survey") checkScheduleFollow(true);
     if(tab==="log") renderLog();
     if(tab==="dash") renderDash();
-    if(tab==="plan"){ state.planEditing = false; state.planDraft = null; renderPlan(); }
+    if(tab==="plan"){ state.planEditing = false; state.planDraft = null; if(!state.planSite) state.planSite = state.site; renderPlan(); }
   }
 
   /* ---------------- today tab ---------------- */
@@ -941,98 +949,177 @@
   }
 
   /* ---------------- plan tab ---------------- */
-  var PLAN_ROLES = {
-    survey: {label:"Surveys (Google Forms)", hint:"Intercept interviews with businesses, staff and tourists, using the Google Forms below."},
-    metrics: {label:"Metrics (in this app)", hint:"Crowd counts, IN/OUT flow, occupancy & queues, bottlenecks, signage, rest spaces, food census, photos."},
-    other: {label:"Other", hint:""}
+  // A plan belongs to one site on one day (site "_day" = whole-day plan, used
+  // wherever a site has no plan of its own). Planners publish/replace plans;
+  // anyone can join or leave a group, which is logged as a separate
+  // "planjoin" doc and replayed on top of the plan's own member lists.
+  var PLAN_ACTIVITIES = {
+    metrics: {label:"Metrics (this app)", hint:"Crowd counts, IN/OUT flow, occupancy & queues, bottlenecks, signage, rest spaces, food census, photos."},
+    survey: {label:"Surveys (Google Forms)", hint:"Intercept interviews with businesses, staff and tourists, using the Google Forms below."}
   };
-  function defaultPlan(dayId){
-    return { day: dayId, notes: "", groups: [
-      {name:"Team A: Surveys", role:"survey", members:[], lead:"", tasks:"", sites:[]},
-      {name:"Team B: Metrics", role:"metrics", members:[], lead:"", tasks:"", sites:[]}
+  var DAY_PLAN = "_day";
+  function planKey(day, site){ return day+"|"+site; }
+  function newGroupId(){ return "g"+uid().slice(-6); }
+  function defaultPlan(){
+    return { mainQuestion:"", notes:"", recordFormat:"What we observed → Why it matters → Opportunity", groups: [
+      {id:newGroupId(), name:"Group 1", objective:"", targets:[], activities:["survey"], members:[], lead:"", tasks:""},
+      {id:newGroupId(), name:"Group 2", objective:"", targets:[], activities:["metrics"], members:[], lead:"", tasks:""}
     ]};
   }
   function isPlanner(){ return PLANNERS.indexOf(state.identity)!==-1; }
-  function acceptPlan(doc){
-    var cur = state.plans[doc.day];
-    if(!cur || String(doc.ts) > String(cur.ts)){ state.plans[doc.day] = doc; persistPlans(); }
+  function normalizePlanDoc(doc){
+    // v1 docs (one plan per day, single role per group) → v2 shape
+    if(doc.site==="_plan") doc.site = DAY_PLAN;
+    (doc.data.groups||[]).forEach(function(g, i){
+      if(!g.id) g.id = "g"+i;
+      if(!g.activities) g.activities = g.role && PLAN_ACTIVITIES[g.role] ? [g.role] : [];
+      if(!g.targets) g.targets = [];
+    });
+    return doc;
   }
+  function acceptPlan(doc){
+    doc = normalizePlanDoc(doc);
+    var k = planKey(doc.day, doc.site), cur = state.plans[k];
+    if(!cur || String(doc.ts) > String(cur.ts)){ state.plans[k] = doc; persistPlans(); }
+  }
+  function acceptPlanJoin(doc){
+    var list = state.planJoins[doc.data.planKey] = state.planJoins[doc.data.planKey] || [];
+    if(!list.some(function(x){ return x.id===doc.id; })){ list.push(doc); persistPlans(); }
+  }
+  function planFor(day, site){ return state.plans[planKey(day, site)] || state.plans[planKey(day, DAY_PLAN)] || null; }
+  // Plan's groups with join/leave events newer than the plan applied.
+  function resolvedGroups(plan){
+    var groups = JSON.parse(JSON.stringify(plan.data.groups||[]));
+    var joins = (state.planJoins[planKey(plan.day, plan.site)]||[]).filter(function(j){ return String(j.ts) > String(plan.ts); })
+      .sort(function(a,b){ return String(a.ts).localeCompare(String(b.ts)); });
+    joins.forEach(function(j){
+      var who = j.author;
+      groups.forEach(function(g){ var i = g.members.indexOf(who); if(i!==-1){ g.members.splice(i,1); if(g.lead===who) g.lead=""; } });
+      if(j.data.action==="join"){ var g = groups.filter(function(x){ return x.id===j.data.group; })[0]; if(g) g.members.push(who); }
+    });
+    return groups;
+  }
+  function myGroup(plan){
+    if(!plan || !state.identity) return null;
+    return resolvedGroups(plan).filter(function(g){ return g.members.indexOf(state.identity)!==-1; })[0] || null;
+  }
+  function planSite(){ return state.planSite || state.site || DAY_PLAN; }
   function renderMyGroup(){
     var card = document.getElementById("myGroupCard");
     if(!card) return;
-    var plan = state.plans[state.day];
+    var plan = planFor(state.day, state.site);
     if(!plan){ card.hidden = true; return; }
-    var g = (plan.data.groups||[]).filter(function(x){ return (x.members||[]).indexOf(state.identity)!==-1; })[0];
+    var g = myGroup(plan);
     card.hidden = false;
     card.innerHTML = g ?
-      '<span class="eyebrow">Your group today</span><h2 style="margin-top:6px;">'+esc(g.name)+'</h2><p class="muted" style="margin-top:4px;">'+esc((PLAN_ROLES[g.role]||PLAN_ROLES.other).label)+(g.lead?" · lead: "+esc(g.lead):"")+'</p><button class="btn secondary" id="openPlanBtn" style="margin-top:10px;">Open the plan</button>' :
-      '<span class="eyebrow">Team plan published</span><p class="muted" style="margin-top:6px;">You\'re not in a group yet for this day.</p><button class="btn secondary" id="openPlanBtn" style="margin-top:10px;">Open the plan</button>';
-    card.querySelector("#openPlanBtn").addEventListener("click", function(){ goTab("plan"); });
+      '<span class="eyebrow">Your group · '+esc(plan.site===DAY_PLAN?"today":siteName(plan.site))+'</span><h2 style="margin-top:6px;">'+esc(g.name)+'</h2>'+
+        (g.objective?'<p class="muted" style="margin-top:4px;">'+esc(g.objective)+"</p>":"")+
+        '<button class="btn secondary" id="openPlanBtn" style="margin-top:10px;">Open the plan</button>' :
+      '<span class="eyebrow">Team plan · '+esc(plan.site===DAY_PLAN?"today":siteName(plan.site))+'</span><p class="muted" style="margin-top:6px;">You haven\'t joined a group yet.</p><button class="btn secondary" id="openPlanBtn" style="margin-top:10px;">Choose a group</button>';
+    card.querySelector("#openPlanBtn").addEventListener("click", function(){ state.planSite = plan.site; goTab("plan"); });
+  }
+  function renderPlanSiteChips(){
+    var el = document.getElementById("planSiteChips");
+    var chips = sitesForDay(state.day).map(function(s){ return {id:s.id, name:s.name, sub:s.window}; }).concat([{id:DAY_PLAN, name:"Whole day", sub:"Default for every site"}]);
+    var cur = planSite();
+    if(!chips.some(function(c){ return c.id===cur; })) cur = state.planSite = chips[0].id;
+    el.innerHTML = chips.map(function(c){
+      var has = !!state.plans[planKey(state.day, c.id)];
+      return '<div class="chip'+(c.id===cur?" active":"")+'" data-psite="'+esc(c.id)+'"><b>'+esc(c.name)+(has?" ✓":"")+"</b><small>"+esc(c.sub||"")+"</small></div>";
+    }).join("");
+    el.querySelectorAll("[data-psite]").forEach(function(c){ c.addEventListener("click", function(){
+      state.planSite = c.getAttribute("data-psite"); state.planEditing = false; state.planDraft = null; renderPlan();
+    }); });
+  }
+  function publishPlanJoin(plan, groupId, action){
+    if(!state.identity){ document.getElementById("gate").style.display="flex"; return; }
+    var k = planKey(plan.day, plan.site);
+    var doc = { id: makeEntryId(plan.day, "planjoin", "planjoin", state.identity), catId:"planjoin", site: plan.site, day: plan.day,
+      author: state.identity, ts: new Date().toISOString(), data: { planKey: k, group: groupId, action: action } };
+    acceptPlanJoin(doc);
+    if(db){ db.collection("entries").doc(doc.id).set(Object.assign({}, doc, {teamCode: TEAM_CODE})).catch(function(){}); }
+    renderPlan(); renderMyGroup();
   }
   function renderPlan(){
     renderDayChips("planDayChips", function(){return state.day;}, function(v){
-      state.day = v; state.planEditing = false; state.planDraft = null; state.followSchedule = true;
+      state.day = v; state.planEditing = false; state.planDraft = null; state.planSite = null; state.followSchedule = true;
       state.site = scheduledSiteId(v) || sitesForDay(v)[0].id;
       renderPlan(); renderToday(); renderSiteChips(); renderCatChips(); renderForm();
     }, false);
+    renderPlanSiteChips();
     if(state.planEditing) return renderPlanEditor();
     var body = document.getElementById("planBody");
-    var plan = state.plans[state.day];
+    var site = planSite();
+    var own = state.plans[planKey(state.day, site)];
+    var plan = own || planFor(state.day, site);
+    var where = site===DAY_PLAN ? "the whole day" : siteName(site);
     var html = "";
     if(!plan){
-      html += '<div class="card"><h2>No plan published yet</h2><p class="muted" style="margin-top:6px;">'+(isPlanner() ? "Split the team into groups for "+esc(dayLabel(state.day))+" and publish it. Everyone sees it as soon as they're online." : "Gabriella, Anugra, Amil or Sohail will publish the team split here.")+"</p>"+
-        (isPlanner() ? '<button class="btn block" id="planEditBtn" style="margin-top:12px;">Create plan</button>' : "")+"</div>";
+      html += '<div class="card"><h2>No plan for '+esc(where)+' yet</h2><p class="muted" style="margin-top:6px;">'+(isPlanner() ? "Set the groups, their objectives and targets, then publish. Everyone sees it as soon as they're online, and can join a group themselves." : "Gabriella, Anugra, Amil or Sohail will publish the groups here. You'll be able to join one.")+"</p>"+
+        (isPlanner() ? '<button class="btn block" id="planEditBtn" style="margin-top:12px;">Create plan for '+esc(where)+"</button>" : "")+"</div>";
     } else {
-      var d = plan.data;
-      html += '<div class="card"><span class="eyebrow">Team plan · '+esc(dayLabel(state.day))+'</span>'+
+      var d = plan.data, mine = myGroup(plan), groups = resolvedGroups(plan);
+      html += '<div class="card"><span class="eyebrow">Plan · '+esc(plan.site===DAY_PLAN?"Whole day":siteName(plan.site))+(own?"":" (day plan, no site plan yet)")+'</span>'+
         '<div class="plan-meta">Published by '+esc(plan.author)+" · "+esc(new Date(plan.ts).toLocaleString([], {month:"short", day:"numeric", hour:"2-digit", minute:"2-digit"}))+"</div>"+
+        (d.mainQuestion ? '<div class="plan-question"><b>Main question</b><div>'+esc(d.mainQuestion)+"</div></div>" : "")+
+        (d.recordFormat ? '<div class="plan-meta" style="margin-top:8px;"><b>Record as:</b> '+esc(d.recordFormat)+"</div>" : "")+
         (d.notes ? '<div class="plan-tasks">'+esc(d.notes)+"</div>" : "")+
-        (d.groups||[]).map(function(g){
-          var mine = (g.members||[]).indexOf(state.identity)!==-1;
-          var role = PLAN_ROLES[g.role]||PLAN_ROLES.other;
-          var sites = (g.sites||[]).map(siteName).filter(Boolean);
-          return '<div class="plan-group'+(mine?" mine":"")+'"><div class="role">'+esc(role.label)+(mine?" · your group":"")+'</div><h3>'+esc(g.name)+"</h3>"+
+        groups.map(function(g){
+          var isMine = mine && mine.id===g.id;
+          var acts = (g.activities||[]).map(function(a){ return PLAN_ACTIVITIES[a] ? PLAN_ACTIVITIES[a].label : a; });
+          return '<div class="plan-group'+(isMine?" mine":"")+'"><div class="role">'+esc(acts.join(" + ")||"Group")+(isMine?" · your group":"")+'</div><h3>'+esc(g.name)+"</h3>"+
             (g.lead ? '<div class="plan-meta">Lead: '+esc(g.lead)+"</div>" : "")+
-            '<div class="plan-members">'+((g.members||[]).length ? g.members.map(function(m){ return '<span class="plan-member'+(m===state.identity?" me":"")+'">'+esc(m)+"</span>"; }).join("") : '<span class="muted">No members yet</span>')+"</div>"+
-            (sites.length ? '<div class="plan-meta" style="margin-top:8px;">Sites: '+esc(sites.join(", "))+"</div>" : "")+
-            (g.tasks ? '<div class="plan-tasks">'+esc(g.tasks)+"</div>" : (role.hint ? '<div class="plan-tasks muted">'+esc(role.hint)+"</div>" : ""))+
-            (g.role==="survey" ? '<div class="plan-links">'+FORM_LINKS.map(function(f){ return '<a href="'+esc(f.url)+'" target="_blank" rel="noopener">↗ '+esc(f.label)+"</a>"; }).join("")+"</div>" : "")+
-            (g.role==="metrics" ? '<button class="btn secondary block plan-go-survey" style="margin-top:10px;">Start recording →</button>' : "")+
-            "</div>";
+            (g.objective ? '<div class="plan-tasks"><b>Objective:</b> '+esc(g.objective)+"</div>" : "")+
+            ((g.targets||[]).length ? '<div class="plan-targets"><b>Targets</b><ul>'+g.targets.map(function(t){ return "<li>"+esc(t)+"</li>"; }).join("")+"</ul></div>" : "")+
+            (g.tasks ? '<div class="plan-tasks">'+esc(g.tasks)+"</div>" : "")+
+            '<div class="plan-members">'+(g.members.length ? g.members.map(function(m){ return '<span class="plan-member'+(m===state.identity?" me":"")+'">'+esc(m)+"</span>"; }).join("") : '<span class="muted">No one yet</span>')+"</div>"+
+            ((g.activities||[]).indexOf("survey")!==-1 ? '<div class="plan-links">'+FORM_LINKS.map(function(f){ return '<a href="'+esc(f.url)+'" target="_blank" rel="noopener">↗ '+esc(f.label)+"</a>"; }).join("")+"</div>" : "")+
+            '<div class="row2" style="margin-top:10px;">'+
+              (isMine ? '<button class="btn ghost" data-leave="'+esc(g.id)+'">Leave group</button>' : '<button class="btn" data-join="'+esc(g.id)+'">'+(mine?"Switch to this group":"Join this group")+"</button>")+
+              ((g.activities||[]).indexOf("metrics")!==-1 ? '<button class="btn secondary plan-go-survey">Start recording →</button>' : "<span></span>")+
+            "</div></div>";
         }).join("")+
-        (isPlanner() ? '<button class="btn ghost block" id="planEditBtn" style="margin-top:12px;">Edit & republish</button>' : "")+
+        (isPlanner() ? '<button class="btn ghost block" id="planEditBtn" style="margin-top:12px;">'+(own?"Edit & republish":"Create a plan just for "+esc(where))+"</button>" : "")+
         "</div>";
     }
     body.innerHTML = html;
     var eb = document.getElementById("planEditBtn");
     if(eb) eb.addEventListener("click", function(){ state.planEditing = true; renderPlan(); });
-    body.querySelectorAll(".plan-go-survey").forEach(function(b){ b.addEventListener("click", function(){ goTab("survey"); }); });
+    body.querySelectorAll(".plan-go-survey").forEach(function(b){ b.addEventListener("click", function(){ if(site!==DAY_PLAN){ state.site = site; state.followSchedule = false; } goTab("survey"); renderSiteChips(); renderForm(); }); });
+    body.querySelectorAll("[data-join]").forEach(function(b){ b.addEventListener("click", function(){ publishPlanJoin(plan, b.getAttribute("data-join"), "join"); toast("Joined"); }); });
+    body.querySelectorAll("[data-leave]").forEach(function(b){ b.addEventListener("click", function(){ publishPlanJoin(plan, b.getAttribute("data-leave"), "leave"); toast("Left the group"); }); });
   }
   function renderPlanEditor(){
     var body = document.getElementById("planBody");
-    var existing = state.plans[state.day];
-    if(!state.planDraft || state.planDraft.day!==state.day){
-      state.planDraft = existing ? JSON.parse(JSON.stringify(Object.assign({}, existing.data, {day:state.day}))) : defaultPlan(state.day);
+    var site = planSite(), k = planKey(state.day, site);
+    var existing = state.plans[k];
+    if(!state.planDraft || state.planDraft.key!==k){
+      // start from the current membership (plan + joins), so republishing keeps who joined
+      state.planDraft = existing ? Object.assign(JSON.parse(JSON.stringify(existing.data)), {groups: resolvedGroups(existing)}) : defaultPlan();
+      state.planDraft.key = k;
     }
     var draft = state.planDraft;
-    var sites = sitesForDay(state.day);
-    var html = '<div class="card"><span class="eyebrow">Editing plan · '+esc(dayLabel(state.day))+'</span>'+
-      '<div class="field" style="margin-top:10px;"><label>Notes for everyone (meeting point, timing, reminders)</label><textarea data-pf="notes">'+esc(draft.notes||"")+"</textarea></div>";
+    var where = site===DAY_PLAN ? "Whole day" : siteName(site);
+    var html = '<div class="card"><span class="eyebrow">Editing plan · '+esc(where)+'</span>'+
+      '<div class="field" style="margin-top:10px;"><label>Main question</label><textarea data-pf="mainQuestion" placeholder="e.g. If I arrive here knowing nothing about Hokuriku, how easy is it to continue to Fukui?">'+esc(draft.mainQuestion||"")+"</textarea></div>"+
+      '<div class="field"><label>How to record observations</label><input type="text" data-pf="recordFormat" value="'+esc(draft.recordFormat||"")+'"></div>'+
+      '<div class="field"><label>Notes for everyone (meeting point, timing, reminders)</label><textarea data-pf="notes">'+esc(draft.notes||"")+"</textarea></div>";
     draft.groups.forEach(function(g, gi){
       html += '<div class="plan-group" data-gi="'+gi+'">'+
         '<div class="field"><label>Group name</label><input type="text" data-gf="name" value="'+esc(g.name)+'"></div>'+
-        '<div class="field"><label>Role</label><select data-gf="role">'+Object.keys(PLAN_ROLES).map(function(k){ return '<option value="'+k+'"'+(g.role===k?" selected":"")+">"+esc(PLAN_ROLES[k].label)+"</option>"; }).join("")+"</select></div>"+
-        '<div class="field"><label>Members (tap to add or remove; faded names are in another group)</label><div class="plan-members">'+ROSTER.map(function(n){
-          var on = (g.members||[]).indexOf(n)!==-1;
-          var elsewhere = !on && draft.groups.some(function(o, oi){ return oi!==gi && (o.members||[]).indexOf(n)!==-1; });
+        '<div class="field"><label>Objective</label><textarea data-gf="objective" placeholder="What this group is finding out">'+esc(g.objective||"")+"</textarea></div>"+
+        '<div class="field"><label>Target objectives (one per line)</label><textarea data-gf="targets" placeholder="e.g. Map every decision point from arrival to bus stop">'+esc((g.targets||[]).join("\n"))+"</textarea></div>"+
+        '<div class="field"><label>Activities</label><div class="plan-members">'+Object.keys(PLAN_ACTIVITIES).map(function(a){
+          var on = (g.activities||[]).indexOf(a)!==-1;
+          return '<button type="button" class="plan-member'+(on?" on":"")+'" data-act="'+a+'">'+esc(PLAN_ACTIVITIES[a].label)+"</button>";
+        }).join("")+"</div></div>"+
+        '<div class="field"><label>Members (optional; people can also join themselves. Faded names are in another group)</label><div class="plan-members">'+ROSTER.map(function(n){
+          var on = g.members.indexOf(n)!==-1;
+          var elsewhere = !on && draft.groups.some(function(o, oi){ return oi!==gi && o.members.indexOf(n)!==-1; });
           return '<button type="button" class="plan-member'+(on?" on":"")+'" data-member="'+esc(n)+'"'+(elsewhere?' style="opacity:.45"':"")+">"+esc(n)+"</button>";
         }).join("")+"</div></div>"+
-        '<div class="field"><label>Lead</label><select data-gf="lead"><option value="">None</option>'+(g.members||[]).map(function(m){ return '<option'+(g.lead===m?" selected":"")+">"+esc(m)+"</option>"; }).join("")+"</select></div>"+
-        '<div class="field"><label>Sites (optional; leave empty for all of today\'s sites)</label><div class="plan-members">'+sites.map(function(x){
-          var on = (g.sites||[]).indexOf(x.id)!==-1;
-          return '<button type="button" class="plan-member'+(on?" on":"")+'" data-psite="'+esc(x.id)+'">'+esc(x.name)+"</button>";
-        }).join("")+"</div></div>"+
-        '<div class="field"><label>Tasks / instructions</label><textarea data-gf="tasks" placeholder="'+esc((PLAN_ROLES[g.role]||PLAN_ROLES.other).hint)+'">'+esc(g.tasks||"")+"</textarea></div>"+
+        '<div class="field"><label>Lead</label><select data-gf="lead"><option value="">None</option>'+g.members.map(function(m){ return '<option'+(g.lead===m?" selected":"")+">"+esc(m)+"</option>"; }).join("")+"</select></div>"+
+        '<div class="field"><label>Extra instructions</label><textarea data-gf="tasks">'+esc(g.tasks||"")+"</textarea></div>"+
         (draft.groups.length>1 ? '<button type="button" class="btn ghost" data-rmgroup>Remove this group</button>' : "")+
         "</div>";
     });
@@ -1041,10 +1128,13 @@
     body.innerHTML = html;
 
     function readInputs(){
-      var n = body.querySelector('[data-pf="notes"]'); if(n) draft.notes = n.value;
+      body.querySelectorAll("[data-pf]").forEach(function(inp){ draft[inp.getAttribute("data-pf")] = inp.value; });
       body.querySelectorAll("[data-gi]").forEach(function(el){
         var g = draft.groups[Number(el.getAttribute("data-gi"))];
-        el.querySelectorAll("[data-gf]").forEach(function(inp){ g[inp.getAttribute("data-gf")] = inp.value; });
+        el.querySelectorAll("[data-gf]").forEach(function(inp){
+          var f = inp.getAttribute("data-gf");
+          g[f] = f==="targets" ? inp.value.split("\n").map(function(t){ return t.replace(/^\s*[-•*]\s*/,"").trim(); }).filter(Boolean) : inp.value;
+        });
       });
     }
     body.querySelectorAll("[data-gi]").forEach(function(el){
@@ -1054,25 +1144,24 @@
         var name = b.getAttribute("data-member");
         if(g.members.indexOf(name)===-1){
           // a person belongs to one group at a time
-          draft.groups.forEach(function(o){ var j = (o.members||[]).indexOf(name); if(j!==-1){ o.members.splice(j,1); if(o.lead===name) o.lead=""; } });
+          draft.groups.forEach(function(o){ var j = o.members.indexOf(name); if(j!==-1){ o.members.splice(j,1); if(o.lead===name) o.lead=""; } });
           g.members.push(name);
         } else { g.members.splice(g.members.indexOf(name),1); if(g.lead===name) g.lead=""; }
         renderPlanEditor();
       }); });
-      el.querySelectorAll("[data-psite]").forEach(function(b){ b.addEventListener("click", function(){
+      el.querySelectorAll("[data-act]").forEach(function(b){ b.addEventListener("click", function(){
         readInputs();
-        g.sites = g.sites||[];
-        var sid = b.getAttribute("data-psite"), i = g.sites.indexOf(sid);
-        if(i===-1) g.sites.push(sid); else g.sites.splice(i,1);
+        g.activities = g.activities||[];
+        var a = b.getAttribute("data-act"), i = g.activities.indexOf(a);
+        if(i===-1) g.activities.push(a); else g.activities.splice(i,1);
         renderPlanEditor();
       }); });
-      el.querySelector('[data-gf="role"]').addEventListener("change", function(){ readInputs(); renderPlanEditor(); });
       var rm = el.querySelector("[data-rmgroup]");
       if(rm) rm.addEventListener("click", function(){ readInputs(); draft.groups.splice(gi,1); renderPlanEditor(); });
     });
     document.getElementById("addGroupBtn").addEventListener("click", function(){
       readInputs();
-      draft.groups.push({name:"Team "+String.fromCharCode(65+draft.groups.length), role:"metrics", members:[], lead:"", tasks:"", sites:[]});
+      draft.groups.push({id:newGroupId(), name:"Group "+(draft.groups.length+1), objective:"", targets:[], activities:["metrics"], members:[], lead:"", tasks:""});
       renderPlanEditor();
     });
     document.getElementById("planCancel").addEventListener("click", function(){ state.planDraft = null; state.planEditing = false; renderPlan(); });
@@ -1080,18 +1169,18 @@
       readInputs();
       if(!isPlanner()){ toast("Only Gabriella, Anugra, Amil or Sohail can publish"); return; }
       var doc = {
-        id: makeEntryId(state.day, "plan", "plan", state.identity),
-        catId: "plan", site: "_plan", day: state.day, author: state.identity, ts: new Date().toISOString(),
-        data: { notes: draft.notes||"", groups: draft.groups.map(function(g){ return {name:g.name||"Group", role:g.role||"other", members:g.members||[], lead:g.lead||"", tasks:g.tasks||"", sites:g.sites||[]}; }) }
+        id: makeEntryId(state.day, site==="_day"?"day":site, "plan", state.identity),
+        catId: "plan", site: site, day: state.day, author: state.identity, ts: new Date().toISOString(),
+        data: { version: 2, mainQuestion: draft.mainQuestion||"", recordFormat: draft.recordFormat||"", notes: draft.notes||"",
+          groups: draft.groups.map(function(g){ return {id:g.id||newGroupId(), name:g.name||"Group", objective:g.objective||"", targets:g.targets||[], activities:g.activities||[], members:g.members||[], lead:g.lead||"", tasks:g.tasks||""}; }) }
       };
       acceptPlan(doc);
-      if(db){ db.collection("entries").doc(doc.id).set(Object.assign({}, doc, {teamCode: TEAM_CODE, dayLabel: dayLabel(doc.day)})).catch(function(){}); }
+      if(db){ db.collection("entries").doc(doc.id).set(Object.assign({}, doc, {teamCode: TEAM_CODE, siteName: site===DAY_PLAN?"Whole day":siteName(site), dayLabel: dayLabel(doc.day)})).catch(function(){}); }
       state.planDraft = null; state.planEditing = false;
       renderPlan(); renderMyGroup();
       toast("Plan published to the team");
     });
   }
-
 
   /* ---------------- survey tab ---------------- */
   function updateScheduleToggle(){

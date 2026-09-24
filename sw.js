@@ -6,7 +6,7 @@
 // offline. Third-party CDN libraries (TensorFlow.js, coco-ssd, fonts) are
 // pinned by exact version in their URL, so those stay CACHE-FIRST — safe to
 // reuse indefinitely and worth it for offline use in the field.
-var CACHE = "dhde-field-survey-v31";
+var CACHE = "dhde-field-survey-v32";
 var SHELL = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", function(event){
@@ -31,6 +31,8 @@ function isOwnFile(request){
 
 self.addEventListener("fetch", function(event){
   if(event.request.method !== "GET") return;
+  // The page's "is there a new version?" check must always hit the network and never be cached.
+  if(event.request.url.indexOf("vcheck=") !== -1) return;
 
   if(isOwnFile(event.request)){
     event.respondWith(

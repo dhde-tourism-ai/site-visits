@@ -111,7 +111,7 @@ It's an assistive estimate from a general-purpose person detector on a phone cam
 
 Single static site (`index.html`, `sw.js`, `manifest.json`, `icon.svg`), no build step. Edit and push to `main` — GitHub Pages redeploys automatically within a minute or two.
 
-If you change the app logic, bump the cache name at the top of `sw.js` (`dhde-field-survey-v5` → `v6`, etc.). This matters less than it used to — the service worker fetches `index.html` network-first now — but it's still good hygiene, and GitHub's CDN can take a few minutes to propagate a new deploy to every edge location, so don't panic if a fix doesn't show up instantly everywhere.
+If you change the app, bump the version in **both** places, to the same value: `CACHE` at the top of `sw.js` and `APP_VERSION` near the top of the script in `index.html` (e.g. `dhde-field-survey-v32` → `v33`). Every open copy of the app checks the live `sw.js` every 2 minutes (and whenever it is reopened or comes back online). When the version differs, it shows an **App update available** banner asking people to finish their entry and tap Refresh, so nobody loses a half-filled form to an automatic reload. GitHub's CDN can take a few minutes to serve a new deploy everywhere.
 
 To add another fieldwork day: add an entry to the `DAYS` array near the top of the script in `index.html` (date, label, `sites`, `schedule`) — everything else (Today/Survey/Log/Dashboard) picks it up automatically, and the app auto-selects whichever day matches the phone's current date.
 

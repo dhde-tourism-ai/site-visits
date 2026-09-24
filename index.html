@@ -607,7 +607,7 @@
     }).observe(document.body, {childList:true, subtree:true});
   }
 
-  // Japanese TAs: one per group, and they sign off each plan after checking it with the tour guide.
+  // Japanese TAs: they join groups (any number per group) and sign off each plan after checking it with the tour guide.
   var TAS = ["Yu Kitagawa","Masaya Iwata","Kaho Shimamura"];
   function isTA(name){ return TAS.indexOf(name)!==-1; }
   // Visitor (tourist) surveys are done only on the committee-approved research form, not in the app.
@@ -1226,11 +1226,6 @@
   }
   function publishPlanJoin(plan, groupId, action){
     if(!state.identity){ document.getElementById("gate").style.display="flex"; return false; }
-    if(action==="join" && isTA(state.identity)){
-      var tg = resolvedGroups(plan).filter(function(g){ return g.id===groupId; })[0];
-      var other = tg && tg.members.filter(function(m){ return isTA(m) && m!==state.identity; })[0];
-      if(other){ toast(other+" is already the TA for this group"); return false; }
-    }
     var k = planKey(plan.day, plan.site);
     var doc = { id: makeEntryId(plan.day, "planjoin", "planjoin", state.identity), catId:"planjoin", site: plan.site, day: plan.day,
       author: state.identity, ts: new Date().toISOString(), data: { planKey: k, group: groupId, action: action } };
@@ -1530,8 +1525,6 @@
         readInputs();
         var name = b.getAttribute("data-member");
         if(g.members.indexOf(name)===-1){
-          var otherTA = isTA(name) && g.members.filter(isTA)[0];
-          if(otherTA){ toast(otherTA+" is already the TA for this group"); return; }
           // a person belongs to one group at a time
           draft.groups.forEach(function(o){ var j = o.members.indexOf(name); if(j!==-1){ o.members.splice(j,1); if(o.lead===name) o.lead=""; } });
           g.members.push(name);

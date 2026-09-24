@@ -252,6 +252,20 @@
   .plan-targets{font-size:13px; margin-top:8px;}
   .plan-targets ul{margin:4px 0 0; padding-left:18px;}
   .plan-targets li{margin:2px 0; line-height:1.45;}
+  .plan-tabs{display:flex; gap:6px; overflow-x:auto; margin:12px -4px 0; padding:2px 4px 6px; scrollbar-width:none;}
+  .plan-tabs::-webkit-scrollbar{display:none;}
+  .plan-tab{flex:none; border:1px solid var(--line); background:var(--surface); color:var(--ink-soft); border-radius:999px; padding:7px 12px; font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap;}
+  .plan-tab.active{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}
+  .plan-tab .n{display:inline-block; min-width:18px; margin-left:6px; padding:0 5px; border-radius:999px; background:var(--surface-2); color:var(--ink); font-size:11px; text-align:center;}
+  .plan-tab.active .n{background:var(--accent-ink); color:var(--accent);}
+  .plan-tab.done:not(.active){border-color:var(--good);}
+  .item-tabs .plan-tab{max-width:220px; overflow:hidden; text-overflow:ellipsis;}
+  .item-card{border:1px solid var(--line); border-radius:12px; padding:12px; margin-top:8px;}
+  .item-card h3{font-size:14.5px; margin:0 0 4px; line-height:1.4;}
+  .item-log{border-top:1px solid var(--line); padding:10px 0 2px; font-size:13px; line-height:1.5;}
+  .item-log .who{font-size:11.5px; color:var(--ink-soft); font-weight:700;}
+  .item-log img{max-width:100%; border-radius:8px; margin-top:6px;}
+  .item-log b{font-weight:700;}
   hr.soft{border:none; border-top:1px solid var(--line); margin:14px 0;}
 
   /* survey module */
@@ -691,6 +705,14 @@
         {id:"notes", label:"Notes", type:"textarea"},
         {id:"photo", label:"Photo (optional)", type:"photo"}
       ]},
+    target:{label:"Group targets", color:"var(--accent)", blurb:"Observations logged against a group's target objectives in the Plan tab.",
+      how:["Open Plan, pick your group, then tap the item you are working on."],
+      fields:[
+        {id:"observed", label:"What we observed", type:"textarea", req:true},
+        {id:"why", label:"Why it matters", type:"textarea"},
+        {id:"opportunity", label:"Opportunity", type:"textarea"},
+        {id:"tphoto", label:"Photo (optional)", type:"photo"}
+      ]},
     notes:{label:"Field Notes", color:"var(--cat-notes)", blurb:"Anything worth recording that isn't a number — context, impressions, things that don't fit a category.",
       how:["Use this for qualitative observations: atmosphere, unexpected behaviour, things you'd tell the team verbally but that wouldn't otherwise get logged.","Tag it to a zone/landmark if it's about a specific spot, but that's optional — general site-wide observations are fine too."],
       fields:[
@@ -703,7 +725,8 @@
   // "occupancy" was folded into Crowd Count; it's no longer offered as a tab,
   // but entries logged before the merge still need to show up in Log/Report.
   function catOrderFor(entries){
-    return entries.some(function(e){ return e.catId==="occupancy"; }) ? CAT_ORDER.concat(["occupancy"]) : CAT_ORDER;
+    var extra = ["target","occupancy"].filter(function(c){ return entries.some(function(e){ return e.catId===c; }); });
+    return extra.length ? CAT_ORDER.concat(extra) : CAT_ORDER;
   }
 
   var SURVEY_TYPES = [
@@ -823,7 +846,7 @@
           });
           persistLocal();
           renderLog(); renderDash();
-          if(state.tab==="plan" && !state.planEditing) renderPlan();
+          if(state.tab==="plan" && !state.planEditing && !planLogDirty()) renderPlan();
           renderMyGroup();
         }, function(){ state.cloudOn = false; updateCloudUI(); });
       db.collection("photos").where("teamCode","==",TEAM_CODE).limit(1000)
@@ -1040,6 +1063,119 @@
     if(db){ db.collection("entries").doc(doc.id).set(Object.assign({}, doc, {teamCode: TEAM_CODE})).catch(function(){}); }
     renderPlan(); renderMyGroup();
   }
+  // ---- per-group item tabs: every target objective is a tab with its own log ----
+  function shortGroupName(g){ return String(g.name||"Group").split(":")[0].trim() || "Group"; }
+  function targetLogs(plan, g, target){
+    var k = planKey(plan.day, plan.site);
+    return Array.from(state.entries.values()).filter(function(e){
+      return e.catId==="target" && e.data && e.data.planKey===k && e.data.groupId===g.id && (target==null || e.data.target===target);
+    }).sort(function(a,b){ return String(b.ts).localeCompare(String(a.ts)); });
+  }
+  function planLogDirty(){
+    var root = document.getElementById("planBody");
+    if(!root) return false;
+    var dirty = Array.from(root.querySelectorAll("[data-tl]")).some(function(i){ return i.value && i.value.trim(); });
+    var f = document.getElementById("f_tphoto");
+    return dirty || !!(f && f._file);
+  }
+  function groupCardHtml(g, mine, withTargets){
+    var isMine = mine && mine.id===g.id;
+    var acts = (g.activities||[]).map(function(a){ return PLAN_ACTIVITIES[a] ? PLAN_ACTIVITIES[a].label : a; });
+    return '<div class="plan-group'+(isMine?" mine":"")+'"><div class="role">'+esc(acts.join(" + ")||"Group")+(isMine?" · your group":"")+'</div><h3>'+esc(g.name)+"</h3>"+
+      (g.lead ? '<div class="plan-meta">Lead: '+esc(g.lead)+"</div>" : "")+
+      (g.objective ? '<div class="plan-tasks"><b>Objective:</b> '+esc(g.objective)+"</div>" : "")+
+      (withTargets && (g.targets||[]).length ? '<div class="plan-targets"><b>Targets</b><ul>'+g.targets.map(function(t){ return "<li>"+esc(t)+"</li>"; }).join("")+"</ul></div>" : "")+
+      (g.tasks ? '<div class="plan-tasks">'+esc(g.tasks)+"</div>" : "")+
+      '<div class="plan-members">'+(g.members.length ? g.members.map(function(m){ return '<span class="plan-member'+(m===state.identity?" me":"")+'">'+esc(m)+"</span>"; }).join("") : '<span class="muted">No one yet</span>')+"</div>"+
+      ((g.activities||[]).indexOf("survey")!==-1 ? '<div class="plan-links">'+FORM_LINKS.map(function(f){ return '<a href="'+esc(f.url)+'" target="_blank" rel="noopener">↗ '+esc(f.label)+"</a>"; }).join("")+"</div>" : "")+
+      '<div class="row2" style="margin-top:10px;">'+
+        (isMine ? '<button class="btn ghost" data-leave="'+esc(g.id)+'">Leave group</button>' : '<button class="btn" data-join="'+esc(g.id)+'">'+(mine?"Switch to this group":"Join this group")+"</button>")+
+        ((g.activities||[]).indexOf("metrics")!==-1 ? '<button class="btn secondary plan-go-survey">Start recording →</button>' : "<span></span>")+
+      "</div></div>";
+  }
+  function currentPlanTab(plan, groups, mine){
+    var k = planKey(plan.day, plan.site);
+    if(state.planTabFor!==k){ state.planTabFor = k; state.planTab = mine ? mine.id : "overview"; }
+    if(state.planTab!=="overview" && !groups.some(function(g){ return g.id===state.planTab; })) state.planTab = "overview";
+    return state.planTab;
+  }
+  function planTabsHtml(plan, groups, mine){
+    var tab = currentPlanTab(plan, groups, mine);
+    return '<div class="plan-tabs" role="tablist">'+
+      '<button class="plan-tab'+(tab==="overview"?" active":"")+'" data-ptab="overview">Overview</button>'+
+      groups.map(function(g){
+        var items = g.targets||[], done = items.filter(function(t){ return targetLogs(plan, g, t).length>0; }).length;
+        return '<button class="plan-tab'+(tab===g.id?" active":"")+'" data-ptab="'+esc(g.id)+'">'+esc(shortGroupName(g))+(mine&&mine.id===g.id?" ★":"")+
+          (items.length ? '<span class="n">'+done+"/"+items.length+"</span>" : "")+"</button>";
+      }).join("")+"</div>";
+  }
+  function groupWorkHtml(plan, g, mine){
+    var items = (g.targets||[]).slice();
+    var orphans = targetLogs(plan, g, null).filter(function(e){ return items.indexOf(e.data.target)===-1; });
+    if(orphans.length) items.push(null); // "Earlier items" tab for logs whose item was renamed or removed
+    state.planItem = state.planItem || {};
+    var sel = state.planItem[g.id];
+    if(sel==null || sel>=items.length) sel = state.planItem[g.id] = 0;
+    var html = groupCardHtml(g, mine, false);
+    if(!items.length) return html+'<p class="muted" style="margin-top:10px;">No target objectives yet. A planner can add them with Edit &amp; republish, and each one will appear here as a tab.</p>';
+    html += '<div class="plan-tabs item-tabs">'+items.map(function(t, i){
+      var n = t===null ? orphans.length : targetLogs(plan, g, t).length;
+      return '<button class="plan-tab'+(i===sel?" active":"")+(n?" done":"")+'" data-pitem="'+i+'" title="'+esc(t===null?"Earlier items":t)+'">'+(t===null?"Earlier items":(i+1)+". "+esc(t))+'<span class="n">'+n+"</span></button>";
+    }).join("")+"</div>";
+    var target = items[sel];
+    var logs = target===null ? orphans : targetLogs(plan, g, target);
+    html += '<div class="item-card">';
+    if(target!==null){
+      html += '<div class="plan-meta">Item '+(sel+1)+" of "+(g.targets||[]).length+" · "+esc(shortGroupName(g))+'</div><h3>'+esc(target)+"</h3>"+
+        (plan.data.recordFormat ? '<div class="plan-meta">Record as: '+esc(plan.data.recordFormat)+"</div>" : "")+
+        '<form id="itemLogForm">'+CATEGORIES.target.fields.map(function(f){
+          var h = fieldHtml(f);
+          return f.type==="textarea" ? h.replace("<textarea ", '<textarea data-tl ') : h;
+        }).join("")+
+        '<button type="submit" class="btn block">Log for this item</button></form>';
+    } else {
+      html += '<h3>Earlier items</h3><p class="muted">Logs for items that were later renamed or removed from the plan.</p>';
+    }
+    html += '<div style="margin-top:12px;"><b style="font-size:12.5px;">Logged so far ('+logs.length+")</b>"+
+      (logs.length ? logs.map(function(e){ var d = e.data;
+        return '<div class="item-log"><div class="who">'+esc(fmtTime(e.ts))+" · "+esc(e.author)+(target===null?" · "+esc(d.target||""):"")+"</div>"+
+          '<div><b>Observed:</b> '+esc(d.observed||"")+"</div>"+
+          (d.why ? '<div><b>Why it matters:</b> '+esc(d.why)+"</div>" : "")+
+          (d.opportunity ? '<div><b>Opportunity:</b> '+esc(d.opportunity)+"</div>" : "")+
+          (e.localPhoto ? '<img src="'+e.localPhoto+'" alt="">' : "")+"</div>";
+      }).join("") : '<p class="muted" style="margin-top:6px;">Nothing logged for this item yet.</p>')+"</div></div>";
+    return html;
+  }
+  function wireGroupWork(plan, g, body){
+    body.querySelectorAll(".plan-tabs .plan-tab.active").forEach(function(t){ try{ t.scrollIntoView({block:"nearest", inline:"center"}); }catch(e){} });
+    body.querySelectorAll("[data-pitem]").forEach(function(b){ b.addEventListener("click", function(){
+      if(planLogDirty() && !confirm("Discard what you've typed for this item?")) return;
+      state.planItem[g.id] = Number(b.getAttribute("data-pitem")); renderPlan();
+    }); });
+    var form = document.getElementById("itemLogForm");
+    if(!form) return;
+    var photoInp = document.getElementById("f_tphoto");
+    if(photoInp) photoInp.addEventListener("change", function(){
+      var file = photoInp.files[0]; if(!file) return;
+      var prev = document.getElementById("f_tphoto_prev"), reader = new FileReader();
+      reader.onload = function(ev){ prev.src = ev.target.result; prev.style.display = "block"; };
+      reader.readAsDataURL(file);
+      photoInp._file = file;
+    });
+    form.addEventListener("submit", function(ev){
+      ev.preventDefault();
+      if(!state.identity){ document.getElementById("gate").style.display="flex"; return; }
+      var target = g.targets[state.planItem[g.id]];
+      var payload = {}, missing = false;
+      CATEGORIES.target.fields.forEach(function(f){ if(f.type==="photo") return; var r = readPlainField(f, form); if(r.missing) missing = true; payload[f.id] = r.value; });
+      if(missing){ toast("Add what you observed first"); return; }
+      payload.planKey = planKey(plan.day, plan.site); payload.groupId = g.id; payload.groupName = g.name; payload.target = target;
+      var site = plan.site===DAY_PLAN ? state.site : plan.site;
+      var photoField = photoInp && photoInp._file ? CATEGORIES.target.fields.filter(function(f){ return f.type==="photo"; })[0] : null;
+      if(photoField) payload.tphoto = true;
+      saveNewEntry("target", payload, photoField, form, { id: makeEntryId(plan.day, site, "target", state.identity), site: site, day: plan.day });
+    });
+  }
   function renderPlan(){
     renderDayChips("planDayChips", function(){return state.day;}, function(v){
       state.day = v; state.planEditing = false; state.planDraft = null; state.planSite = null; state.followSchedule = true;
@@ -1064,21 +1200,8 @@
         (d.mainQuestion ? '<div class="plan-question"><b>Main question</b><div>'+esc(d.mainQuestion)+"</div></div>" : "")+
         (d.recordFormat ? '<div class="plan-meta" style="margin-top:8px;"><b>Record as:</b> '+esc(d.recordFormat)+"</div>" : "")+
         (d.notes ? '<div class="plan-tasks">'+esc(d.notes)+"</div>" : "")+
-        groups.map(function(g){
-          var isMine = mine && mine.id===g.id;
-          var acts = (g.activities||[]).map(function(a){ return PLAN_ACTIVITIES[a] ? PLAN_ACTIVITIES[a].label : a; });
-          return '<div class="plan-group'+(isMine?" mine":"")+'"><div class="role">'+esc(acts.join(" + ")||"Group")+(isMine?" · your group":"")+'</div><h3>'+esc(g.name)+"</h3>"+
-            (g.lead ? '<div class="plan-meta">Lead: '+esc(g.lead)+"</div>" : "")+
-            (g.objective ? '<div class="plan-tasks"><b>Objective:</b> '+esc(g.objective)+"</div>" : "")+
-            ((g.targets||[]).length ? '<div class="plan-targets"><b>Targets</b><ul>'+g.targets.map(function(t){ return "<li>"+esc(t)+"</li>"; }).join("")+"</ul></div>" : "")+
-            (g.tasks ? '<div class="plan-tasks">'+esc(g.tasks)+"</div>" : "")+
-            '<div class="plan-members">'+(g.members.length ? g.members.map(function(m){ return '<span class="plan-member'+(m===state.identity?" me":"")+'">'+esc(m)+"</span>"; }).join("") : '<span class="muted">No one yet</span>')+"</div>"+
-            ((g.activities||[]).indexOf("survey")!==-1 ? '<div class="plan-links">'+FORM_LINKS.map(function(f){ return '<a href="'+esc(f.url)+'" target="_blank" rel="noopener">↗ '+esc(f.label)+"</a>"; }).join("")+"</div>" : "")+
-            '<div class="row2" style="margin-top:10px;">'+
-              (isMine ? '<button class="btn ghost" data-leave="'+esc(g.id)+'">Leave group</button>' : '<button class="btn" data-join="'+esc(g.id)+'">'+(mine?"Switch to this group":"Join this group")+"</button>")+
-              ((g.activities||[]).indexOf("metrics")!==-1 ? '<button class="btn secondary plan-go-survey">Start recording →</button>' : "<span></span>")+
-            "</div></div>";
-        }).join("")+
+        planTabsHtml(plan, groups, mine)+
+        (currentPlanTab(plan, groups, mine)==="overview" ? groups.map(function(g){ return groupCardHtml(g, mine, true); }).join("") : groupWorkHtml(plan, groups.filter(function(g){ return g.id===state.planTab; })[0], mine))+
         (isPlanner() ? '<button class="btn ghost block" id="planEditBtn" style="margin-top:12px;">'+(own?"Edit & republish":"Create a plan just for "+esc(where))+"</button>" : "")+
         "</div>";
     }
@@ -1086,8 +1209,13 @@
     var eb = document.getElementById("planEditBtn");
     if(eb) eb.addEventListener("click", function(){ state.planEditing = true; renderPlan(); });
     body.querySelectorAll(".plan-go-survey").forEach(function(b){ b.addEventListener("click", function(){ if(site!==DAY_PLAN){ state.site = site; state.followSchedule = false; } goTab("survey"); renderSiteChips(); renderForm(); }); });
-    body.querySelectorAll("[data-join]").forEach(function(b){ b.addEventListener("click", function(){ publishPlanJoin(plan, b.getAttribute("data-join"), "join"); toast("Joined"); }); });
+    body.querySelectorAll("[data-join]").forEach(function(b){ b.addEventListener("click", function(){ state.planTab = b.getAttribute("data-join"); publishPlanJoin(plan, b.getAttribute("data-join"), "join"); toast("Joined"); }); });
     body.querySelectorAll("[data-leave]").forEach(function(b){ b.addEventListener("click", function(){ publishPlanJoin(plan, b.getAttribute("data-leave"), "leave"); toast("Left the group"); }); });
+    body.querySelectorAll("[data-ptab]").forEach(function(b){ b.addEventListener("click", function(){
+      if(planLogDirty() && !confirm("Discard what you've typed for this item?")) return;
+      state.planTab = b.getAttribute("data-ptab"); renderPlan();
+    }); });
+    if(plan && state.planTab!=="overview"){ var wg = resolvedGroups(plan).filter(function(g){ return g.id===state.planTab; })[0]; if(wg) wireGroupWork(plan, wg, body); }
   }
   function renderPlanEditor(){
     var body = document.getElementById("planBody");
@@ -1452,6 +1580,7 @@
     function finish(){
       state.entries.set(entry.id, entry); state.sinceExport++; persistLocal();
       toast(state.cloudOn ? "Saved — syncing live" : "Saved to this device"); renderForm(); renderLog(); renderDash();
+      if(state.tab==="plan" && !state.planEditing) renderPlan();
       pushToCloud(entry);
     }
     if(photoField && root){
@@ -1983,6 +2112,7 @@
         return parts.filter(Boolean).join(" — ");
       }
       case "notes": return (d.zone?d.zone+": ":"")+(d.notes||"").slice(0,90);
+      case "target": return (d.groupName||"Group")+" · "+(d.target||"")+": "+(d.observed||"").slice(0,90);
       default: return "";
     }
   }
@@ -2223,6 +2353,14 @@
       entries.forEach(function(e){ (e.data.lines||[]).forEach(function(v){ totalLines++; totalPeopleInLines += v; }); });
       html = '<div class="report-stat-grid">'+statTile(n,"Snapshots")+statTile(avgOf(occ)!=null?Math.round(avgOf(occ)):"—","Avg occupancy")+statTile(avgOf(dwell)!=null?avgOf(dwell).toFixed(1)+" min":"—","Avg group dwell")+statTile(totalLines,"Lines observed")+"</div>";
       if(totalLines) html += '<p class="muted">'+totalPeopleInLines+" people counted across "+totalLines+" queue observation"+(totalLines===1?"":"s")+".</p>";
+    } else if(catId==="target"){
+      var byItem = {};
+      entries.forEach(function(e){ var k = (e.data.groupName||"Group")+" · "+(e.data.target||"Item"); (byItem[k]=byItem[k]||[]).push(e); });
+      html = '<div class="report-stat-grid">'+statTile(n,"Observations")+statTile(Object.keys(byItem).length,"Items covered")+"</div>";
+      Object.keys(byItem).sort().forEach(function(k){
+        html += "<h4 style='font-size:12.5px;margin:10px 0 4px;'>"+esc(k)+" ("+byItem[k].length+")</h4><ul class='report-quote-list'>"+
+          byItem[k].map(function(e){ var d=e.data; return "<li>"+esc(d.observed||"")+(d.why?" <b>Why it matters:</b> "+esc(d.why):"")+(d.opportunity?" <b>Opportunity:</b> "+esc(d.opportunity):"")+"</li>"; }).join("")+"</ul>";
+      });
     } else if(catId==="notes"){
       var noteTexts = entries.map(function(e){ return (e.data.zone?e.data.zone+": ":"")+e.data.notes; }).filter(Boolean).slice(0,12);
       html = '<div class="report-stat-grid">'+statTile(n,"Observations")+"</div>";
@@ -2231,7 +2369,7 @@
     return html;
   }
 
-  var SHORT_CAT_LABEL = {count:"Count",flow:"Flow",lang:"Signage",rest:"Rest",food:"Food",survey:"Survey",photo:"Photo",spot:"Spot",occupancy:"Occup.",notes:"Notes"};
+  var SHORT_CAT_LABEL = {count:"Count",flow:"Flow",lang:"Signage",rest:"Rest",food:"Food",survey:"Survey",photo:"Photo",spot:"Spot",occupancy:"Occup.",notes:"Notes",target:"Targets"};
 
   function svgBarChart(items){
     items = items.filter(function(i){return i.value>0;});

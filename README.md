@@ -26,6 +26,10 @@ Open that link on your phone, add it to your home screen, and pick your name —
 - **Log** — everyone's entries on this device, filterable by day/site/person, with JSON/CSV export (of whatever's currently filtered) and a paste-to-merge importer.
 - **Dashboard** — live coverage stats, entries by category, per-person contribution counts (tap a name to jump to their entries), and automatic gap flags for categories nobody has logged yet at a given site.
 
+## Japanese interface
+
+Tap **日本語** in the top bar (or on the name screen) to switch the interface to Japanese, and **EN** to switch back. It is remembered per phone. Tabs, buttons, category names, field labels, options, how-to tips, the Plan tab and messages are translated by exact-match lookup on the rendered text (the `JA` dictionary and `JA_PATTERNS` near the top of the script in `index.html`), so render code stays in English. Entries, plan text and other team-written content stay as written, and survey questions were already bilingual. Text split around bold words carries its Japanese in a `data-ja` attribute. To add or fix a translation, add the exact English string to `JA`. The translations were written without native review, so a native speaker should check them.
+
 ## How data moves between phones — and how nothing gets lost
 
 There's no traditional backend to maintain — Firestore (Firebase's document database) handles live sync, and everything also lives in each phone's local storage regardless of connectivity. Login is still just picking your name — no accounts, no passwords.

@@ -128,7 +128,7 @@ var SITES = [
  {
   "key": "sep23|eiheiji",
   "name": "Eiheiji Temple",
-  "docId": "__DOC_sep23_eiheiji__",
+  "docId": "1FWjKtPw_EGifzxvrzpxWmcMIEmHQvyGGVjzbfVCtTO4",
   "photosFolderId": "1Okl97PD_Ibib-wq7iN-_zwtp1SzunVud",
   "photos": [
    {

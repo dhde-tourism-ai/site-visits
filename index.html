@@ -462,7 +462,7 @@
   };
   var db = null;
 
-  // Who can publish a day's team plan (Plan tab). Soft gate only — identity is just a picked name.
+  // Who can publish a day's team plan (Plan tab). Soft gate only: identity is just a picked name.
   var PLANNERS = ["Gabriella Gunarto","Muhammad Anugra Rizky Rambe","Amil Khanzada","Mohammed Sohail"];
   var FORM_LINKS = [
     {label:"Business / Shop Owner form", url:"https://docs.google.com/forms/d/1lMRQZFscew_AOCLjZ7w63C6So7f1tsPJKNUw0EENoBc/viewform"},
@@ -511,7 +511,7 @@
     { id:"sep24", date:"2026-09-24", label:"Day 5 · Komatsu & Kanazawa",
       sites:[
         {id:"komatsu", name:"Komatsu Airport", window:"08:55–09:25", focus:"Arrival/departure routes, multilingual provision, the Hokuriku inbound corridor", bg:"Ishikawa's main airport, sharing its runway with JASDF Komatsu Air Base. Domestic flights (mainly Tokyo Haneda) plus a few international routes to East Asia (Seoul, Taipei and others, depending on season). It is also the nearest airport to Fukui, with a direct bus to Fukui Station. Since the Hokuriku Shinkansen reached Komatsu and Fukui in March 2024, much Tokyo traffic has shifted from air to rail.", look:"Where do arriving foreign visitors go first (bus, taxi, rental-car desk)? Is Fukui mentioned or signposted at all, or only Kanazawa? Languages at the info desk and bus stops."},
-        {id:"c21museum", name:"21st Century Museum (exchange zone)", window:"10:10–10:35", focus:"Exhibition zone closed today — exterior & exchange zone observation only", bg:"21st Century Museum of Contemporary Art, Kanazawa, opened 2004. The round, glass-walled building is by SANAA (Kazuyo Sejima and Ryue Nishizawa). It has a free exchange (public) zone and a ticketed exhibition zone, and is one of the most-visited art museums in Japan. Best-known work: Leandro Erlich's Swimming Pool. It sits right next to Kenroku-en.", look:"The exhibition zone is closed today, so watch how visitors react: do they turn away, or stay in the free zone? Free public space acting as a crowd buffer next to Kenroku-en."},
+        {id:"c21museum", name:"21st Century Museum (exchange zone)", window:"10:10–10:35", focus:"Exhibition zone closed today: exterior & exchange zone observation only", bg:"21st Century Museum of Contemporary Art, Kanazawa, opened 2004. The round, glass-walled building is by SANAA (Kazuyo Sejima and Ryue Nishizawa). It has a free exchange (public) zone and a ticketed exhibition zone, and is one of the most-visited art museums in Japan. Best-known work: Leandro Erlich's Swimming Pool. It sits right next to Kenroku-en.", look:"The exhibition zone is closed today, so watch how visitors react: do they turn away, or stay in the free zone? Free public space acting as a crowd buffer next to Kenroku-en."},
         {id:"kenrokuen", name:"Kenroku-en Garden", window:"10:45–11:55", focus:"Crowd dispersal points, multilingual signage", bg:"One of Japan's Three Great Gardens, with Kairakuen (Mito) and Korakuen (Okayama). The Maeda lords of the Kaga domain built it up from the 1670s over about two centuries; it opened to the public in 1874. The name means a garden combining six qualities. Icons: the two-legged Kotoji stone lantern and, from November, yukitsuri snow ropes on the pines. Ticketed, with several gates.", look:"How visitors spread across the gates (Katsurazaka gate, facing the castle, is usually the busiest). Queues and photo dwell time at the Kotoji lantern. Map and signage languages."},
         {id:"kanazawacastle", name:"Kanazawa Castle Park", window:"12:05–13:00", focus:"General crowd & flow observation", bg:"Seat of the Maeda clan, whose Kaga domain was the richest in Edo Japan (Kaga Hyakumangoku). Fires destroyed most of the castle; the Ishikawa-mon gate (1788) and Sanjukken Nagaya storehouse are original. The Hishi-yagura, Gojukken Nagaya and Hashizume-mon were rebuilt from 2001 using traditional methods. The park is free and connects to Kenroku-en across Ishikawa bridge.", look:"A free, wide-open site next to a ticketed one: does it absorb Kenroku-en's overflow? Flow between the two across Ishikawa bridge."},
         {id:"omicho", name:"Omicho Market", window:"13:15–14:30", focus:"Lunch + market observation. Halal unreliable, bring a packed lunch", bg:"Kanazawa's kitchen: a covered market of roughly 170 stalls, trading since the Edo period (about 300 years). Known for seafood rice bowls (kaisen-don), nodoguro (blackthroat seaperch), oysters and, in winter, snow crab. The lunchtime peak is intense in narrow aisles, and some stalls close on Wednesdays or Sundays.", look:"Aisle congestion and queues at the famous kaisen-don shops. Menus in other languages, cashless payment, and whether halal or vegetarian options exist (relevant to Fukui's food-access gap)."},
@@ -609,8 +609,8 @@
         {id:"tally", label:"60-second tally (headcount)", type:"number", req:true, cam:"flow"},
         {id:"density", label:"Density — 1 free flow → 5 jammed", type:"scale5", req:true},
         {id:"flow", label:"Flow pattern", type:"select", req:true, options:["One-way","Two-way","Crossing / merging","Static crowd (no flow)"]},
-        {id:"inflow", label:"Inflow — people IN (optional, filled by Manual tally)", type:"number"},
-        {id:"outflow", label:"Outflow — people OUT (optional, filled by Manual tally)", type:"number"},
+        {id:"inflow", label:"Inflow: people IN (optional, filled by Manual tally)", type:"number"},
+        {id:"outflow", label:"Outflow: people OUT (optional, filled by Manual tally)", type:"number"},
         {id:"occupancyCount", label:"People in the area right now (optional)", type:"number"},
         {id:"dwellMinutes", label:"Group dwell time in minutes (optional)", type:"number", cam:"dwell"},
         {id:"lines", label:"Queues / lines (optional)", type:"lines"},
@@ -805,7 +805,7 @@
             if(change.type==="removed") return;
             var incoming = change.doc.data();
             // Team plans ride in the entries collection (existing Firestore rules
-            // already allow it) but are never survey data — keep them out of Log/Report.
+            // already allow it) but are never survey data, so keep them out of Log/Report.
             if(incoming.catId==="plan"){ acceptPlan(incoming); return; }
             var existing = state.entries.get(change.doc.id);
             if(existing && (existing.localPhoto || existing.audioNote)){
@@ -948,8 +948,8 @@
   };
   function defaultPlan(dayId){
     return { day: dayId, notes: "", groups: [
-      {name:"Team A — Surveys", role:"survey", members:[], lead:"", tasks:"", sites:[]},
-      {name:"Team B — Metrics", role:"metrics", members:[], lead:"", tasks:"", sites:[]}
+      {name:"Team A: Surveys", role:"survey", members:[], lead:"", tasks:"", sites:[]},
+      {name:"Team B: Metrics", role:"metrics", members:[], lead:"", tasks:"", sites:[]}
     ]};
   }
   function isPlanner(){ return PLANNERS.indexOf(state.identity)!==-1; }
@@ -1022,13 +1022,13 @@
       html += '<div class="plan-group" data-gi="'+gi+'">'+
         '<div class="field"><label>Group name</label><input type="text" data-gf="name" value="'+esc(g.name)+'"></div>'+
         '<div class="field"><label>Role</label><select data-gf="role">'+Object.keys(PLAN_ROLES).map(function(k){ return '<option value="'+k+'"'+(g.role===k?" selected":"")+">"+esc(PLAN_ROLES[k].label)+"</option>"; }).join("")+"</select></div>"+
-        '<div class="field"><label>Members (tap to add or remove — faded names are in another group)</label><div class="plan-members">'+ROSTER.map(function(n){
+        '<div class="field"><label>Members (tap to add or remove; faded names are in another group)</label><div class="plan-members">'+ROSTER.map(function(n){
           var on = (g.members||[]).indexOf(n)!==-1;
           var elsewhere = !on && draft.groups.some(function(o, oi){ return oi!==gi && (o.members||[]).indexOf(n)!==-1; });
           return '<button type="button" class="plan-member'+(on?" on":"")+'" data-member="'+esc(n)+'"'+(elsewhere?' style="opacity:.45"':"")+">"+esc(n)+"</button>";
         }).join("")+"</div></div>"+
-        '<div class="field"><label>Lead</label><select data-gf="lead"><option value="">—</option>'+(g.members||[]).map(function(m){ return '<option'+(g.lead===m?" selected":"")+">"+esc(m)+"</option>"; }).join("")+"</select></div>"+
-        '<div class="field"><label>Sites (optional — leave empty for all of today\'s sites)</label><div class="plan-members">'+sites.map(function(x){
+        '<div class="field"><label>Lead</label><select data-gf="lead"><option value="">None</option>'+(g.members||[]).map(function(m){ return '<option'+(g.lead===m?" selected":"")+">"+esc(m)+"</option>"; }).join("")+"</select></div>"+
+        '<div class="field"><label>Sites (optional; leave empty for all of today\'s sites)</label><div class="plan-members">'+sites.map(function(x){
           var on = (g.sites||[]).indexOf(x.id)!==-1;
           return '<button type="button" class="plan-member'+(on?" on":"")+'" data-psite="'+esc(x.id)+'">'+esc(x.name)+"</button>";
         }).join("")+"</div></div>"+

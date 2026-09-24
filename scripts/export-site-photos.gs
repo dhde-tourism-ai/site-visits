@@ -42,7 +42,7 @@ var SITES = [
  {
   "key": "sep21|kiyomizu",
   "name": "Kiyomizu-dera · Ninen-zaka · Sannen-zaka",
-  "docId": "__DOC_sep21_kiyomizu__",
+  "docId": "1H8sw-Dms9_NclISHEv_jlqoIULgis3bVkykc87zO7Rk",
   "photosFolderId": "1xCTgvuXLhRF8dbuQTaoXeYKIMoUT7ZC8",
   "photos": [
    {
@@ -75,7 +75,7 @@ var SITES = [
  {
   "key": "sep23|dinomuseum",
   "name": "Fukui Prefectural Dinosaur Museum",
-  "docId": "__DOC_sep23_dinomuseum__",
+  "docId": "18GiO8Nujd-el8-4PgQnHgjD8nnhWIQ0yCceSd7zqM9Y",
   "photosFolderId": "1Okl97PD_Ibib-wq7iN-_zwtp1SzunVud",
   "photos": [
    {
@@ -128,7 +128,7 @@ var SITES = [
  {
   "key": "sep23|eiheiji",
   "name": "Eiheiji Temple",
-  "docId": "__DOC_sep23_eiheiji__",
+  "docId": "1uUoO2Zj_RgQGe6-yJPgjK0D53trSZytjmLhPd_4HvwU",
   "photosFolderId": "1Okl97PD_Ibib-wq7iN-_zwtp1SzunVud",
   "photos": [
    {
@@ -281,7 +281,7 @@ var SITES = [
  {
   "key": "sep23|tojinbo",
   "name": "Tojinbo & Echizen Coast",
-  "docId": "__DOC_sep23_tojinbo__",
+  "docId": "1UPS8ujj40oa28nMypENXG_nBOnH1dRgX4-S1EMHOxQM",
   "photosFolderId": "1Okl97PD_Ibib-wq7iN-_zwtp1SzunVud",
   "photos": [
    {

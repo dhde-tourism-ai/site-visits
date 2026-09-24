@@ -56,6 +56,12 @@ Creating the forms doesn't pull in survey/photo data collected through the app *
 
 No photo lands in Drive without a label: each one gets a human-readable filename (site, category, date, photographer — not a code), a file description with a real caption pulled from whatever the field team wrote for that entry (the signage gap noted, the bottleneck's cause, the business name, etc.), and a row in a new **"DHDE Field Photos — Index"** sheet in the `Research` folder listing every photo with its date/day/site/category/author/caption and a direct Drive link. Any photo tied to a survey entry is also linked into that entry's row on the relevant response sheet via a "Photo Link" column.
 
+### Per-site field reports in the team Drive
+
+Each visited site has its own folder inside that day's folder in the Sakura team Drive (e.g. `Day 3 / Eiheiji Temple`), holding a Google Doc report built from the live Firestore data. The report uses the app's own per-category summary plus a table of every recorded value for every entry, and includes any typed-up field notes. Test entries (`TEST-DELETE-ME`, `LIVE-SYNC-CHECK … (delete me)`) are left out. Entries logged in the app under one site but recorded more than an hour outside its window, and during another site's window, are filed under the site they were actually recorded at and marked "Moved here". Entries 30–60 minutes outside their window stay put and are marked "⚠ Check site".
+
+The photos are too large to create through a chat connector, so `scripts/export-site-photos.gs` adds them from inside Google: it reads every synced photo from Firestore, saves it to `<day Photos folder>/App photos — <site>`, and replaces the `[[PHOTOS]]` marker in that site's report with the captioned photos. Run `exportSitePhotos` once from script.google.com (steps at the top of the file). It is safe to re-run.
+
 Once the three forms are live, their links can be added to the app (a later update) so the team can jump straight from "Intercept Survey" to the right form.
 
 ### Firestore setup (done)
